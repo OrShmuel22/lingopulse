@@ -51,13 +51,6 @@ DEFAULTS = {
     },
     "daemon": {
         "port": 17823
-    },
-    "pipeline": {
-        "gec_enabled": True,
-        "gec_model": "pszemraj/grammar-synthesis-small",
-        "gec_max_length": 512,
-        "tone_classifier_enabled": True,
-        "fallback_to_llm_if_gec_fails": True
     }
 }
 

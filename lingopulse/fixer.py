@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 
-from . import gec, history, protection, tone
+from . import history, protection
 from .ollama_client import OllamaClient
-from .prompts import build_fixer_prompt
+from .prompts import build_fixer_prompt, tone_for_app
 from .ring_buffer import RingBuffer
 
 
@@ -18,49 +18,25 @@ def refine(
 ) -> dict:
     """Run the full fixer pipeline.
 
-    Returns dict with keys: original, refined, app, gec_used, llm_used.
+    Returns dict with keys: original, refined, app.
     Raises OllamaError subclasses, ProtectionError, or ValueError on bad input.
     """
     if not selection.strip():
         raise ValueError("Empty selection")
 
-    pipeline_cfg = config.get("pipeline", {})
-
+    tone = tone_override if tone_override else tone_for_app(app, selection, config)
     protected = protection.protect(selection)
-    working = protected.redacted
+    prompt = build_fixer_prompt(app, tone, protected.redacted)
 
-    gec_used = False
-    if pipeline_cfg.get("gec_enabled", True):
-        try:
-            working = gec.correct(
-                working,
-                max_length=pipeline_cfg.get("gec_max_length", 512),
-            )
-            gec_used = True
-        except gec.GecError:
-            if not pipeline_cfg.get("fallback_to_llm_if_gec_fails", True):
-                raise
-
-    needs, target_tone = (
-        tone.needs_shift(selection, app, tone_override)
-        if pipeline_cfg.get("tone_classifier_enabled", True)
-        else (True, tone_override or "Neutral")
+    client = OllamaClient()
+    response = client.generate(
+        model=config["fixer"]["model"],
+        prompt=prompt,
+        keep_alive=config["keepalive"]["ollama_keep_alive"],
+        timeout=config["fixer"]["timeout_seconds"],
     )
 
-    llm_used = False
-    if needs or not gec_used:
-        prompt = build_fixer_prompt(app, target_tone, working)
-        client = OllamaClient()
-        working = client.generate(
-            model=config["fixer"]["model"],
-            prompt=prompt,
-            keep_alive=config["keepalive"]["ollama_keep_alive"],
-            timeout=config["fixer"]["timeout_seconds"],
-            think=False,
-        )
-        llm_used = True
-
-    refined = protection.restore(working, protected.tokens)
+    refined = protection.restore(response.strip(), protected.tokens)
 
     ring_path = _ring_path(config)
     ring = RingBuffer(ring_path, size=config["ring_buffer"]["size"])
@@ -82,17 +58,13 @@ def refine(
         }
     )
 
-    return {
-        "original": selection,
-        "refined": refined,
-        "app": app,
-        "gec_used": gec_used,
-        "llm_used": llm_used,
-    }
+    return {"original": selection, "refined": refined, "app": app}
 
 
 def already_refined(selection: str, config: dict) -> bool:
     """Return True if selection matches a recently refined entry (within 30s)."""
+    import time
+
     ring_path = _ring_path(config)
     ring = RingBuffer(ring_path, size=config["ring_buffer"]["size"])
     entries = ring.list_all()
