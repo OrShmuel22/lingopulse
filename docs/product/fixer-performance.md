@@ -123,3 +123,9 @@ Already covered by `fixer-undo.md` Task 7 (inference lock). No new work here.
 ## Hand-off
 
 Tasks 1–9 go to `/dev`. Decisions locked. Remaining ambiguity is packaging (install script vs. manual `launchctl`) and measurement-driven (benchmarks may surface a thermal/throttle issue specific to M4 Air that we'll handle reactively).
+
+## v2 NOTE (2026-04-24)
+
+HUD feedback migrated from osascript notifications to Raycast's `showToast` + `showHUD`. Timing thresholds (100ms show, 2s cold-start notice, 15s error) managed by TS extension async flow. A third LaunchAgent (`com.lingopulse.daemon`) joins the existing warmup + keepalive agents. New config section:
+
+    "daemon": { "port": 17823 }

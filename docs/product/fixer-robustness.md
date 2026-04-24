@@ -122,3 +122,7 @@ At that point, promote the v1.1 plan from this doc and implement the compile-sty
 ## Hand-off
 
 Tasks 1–6 to `/dev`. Smallest and cleanest batch of the four Fixer docs.
+
+## v2 NOTE (2026-04-24)
+
+Clipboard save/restore now lives inside the daemon's /refine handler. Behavior unchanged — text-only preservation still applies.

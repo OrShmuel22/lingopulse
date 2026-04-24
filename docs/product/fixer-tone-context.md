@@ -163,3 +163,7 @@ Heuristic runs in Python in ~1 ms. No accessibility calls.
 ## Hand-off
 
 Tasks 1–7 go to `/dev`. Prompt change (Task 1) is isolated and can ship independently of the tone picker (Tasks 2–3) if we want to stage delivery.
+
+## v2 NOTE (2026-04-24)
+
+Per-app tone memory is now visually preselected in the tone picker (v2 Raycast Extension). Raycast's `LocalStorage` with `selectedItemId` replaces v1's `tone_overrides.json` file + static dropdown. The v1 limitation "dropdown doesn't preselect per-app last-used tone" is **resolved**.

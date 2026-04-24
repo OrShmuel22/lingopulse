@@ -115,3 +115,7 @@ Fallback if refined text can't be located (user already edited or deleted it): s
 ## Hand-off
 
 Next: `/dev` consumes Tasks 1–9 above. All decisions locked. Remaining ambiguity is implementation-detail only (daemon vs file-backed state, injection API fallback) and can be resolved during development without product input.
+
+## v2 NOTE (2026-04-24)
+
+The undo behavior described here ships in the v2 Raycast Extension. Raycast's `Clipboard.paste()` API replaces the osascript keystroke flow from v1; undo is more reliable across app surfaces. When the refined text is no longer selected, v2's fallback renders the last-5-originals as a proper Raycast `<List>` (vs v1's fullOutput panel).

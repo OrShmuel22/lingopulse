@@ -173,3 +173,7 @@ If revisiting: open this doc, promote the `Option B+C+D+E` section from history 
 ## Hand-off
 
 Tasks 1–8 go to `/dev`. Ship this simple version. The logging (Task 6) and baseline (Task 8) are specifically for the "revisit criteria" — they exist so the decision to upgrade is data-driven, not anxiety-driven.
+
+## v2 NOTE (2026-04-24)
+
+Dictionary candidates are now individually clickable in the v2 Raycast Extension (real row-selection via `<List>`). The v1 limitation "first candidate auto-copies; 2nd/3rd require manual highlight" is **resolved**. `picked_index` in history.jsonl now reflects the user's actual pick.

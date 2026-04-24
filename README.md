@@ -9,6 +9,7 @@ LingoPulse is a local, private English refinement tool for macOS power users. It
 - macOS 14+ (tested on M4 Air)
 - Python 3.11+ (3.12 recommended)
 - Ollama
+- Node.js
 - Raycast
 - Homebrew (to install the above)
 
@@ -17,39 +18,46 @@ LingoPulse is a local, private English refinement tool for macOS power users. It
 ## Install
 
 ```bash
-# 1. Install dependencies
+# Prerequisites (one-time)
 brew install --cask raycast
-brew install ollama
+brew install ollama node
 brew services start ollama
 
-# 2. Clone and set up
+# Install LingoPulse
 git clone <repo-url> ~/Projects/lingopluse
 cd ~/Projects/lingopluse
 python3 -m venv .venv
 .venv/bin/pip install -e .
+./scripts/install.sh          # pulls gemma4:e4b, installs LaunchAgents (daemon + keep-alive)
 
-# 3. Run installer (pulls model, configures LaunchAgents, sets OLLAMA_KEEP_ALIVE)
-./scripts/install.sh
-
-# 4. Add Raycast scripts
-# Open Raycast → Extensions → Script Commands → Add Script Directory
-# Point to: ~/Projects/lingopluse/scripts/raycast
+# Register the Raycast extension (one-time)
+cd extension
+npm ci
+npm run dev
+# Leave this running — Raycast picks up the extension in dev mode.
+# The six LingoPulse commands appear in Raycast automatically.
 ```
 
 ---
 
 ## Hotkey Setup
 
-Assign these hotkeys in Raycast (Extensions → Script Commands → select command → set hotkey):
+In Raycast → Extensions → find LingoPulse → assign hotkeys for each of the six commands:
 
-| Hotkey | Command | What it does |
-|--------|---------|--------------|
-| ⌘⌥E | Refine Selection | Refine selected text using the app's default tone |
-| ⌘⌥⇧E | Refine Selection (Preview) | Refine + show a rich diff panel (⌘⌥Z to undo) |
-| ⌘⌥Z | Undo Refinement | Restore the original text (requires refined text still selected) |
-| ⌘⌥T | Refine with Tone | Pick a tone (Casual/Neutral/Technical/Professional/Grammar-only) and refine |
-| ⌘⌥S | Find a Word | Search by concept — English or Hebrew query, returns 3 candidates |
-| ⌘⌥M | Save as Style Example | Log the selection as a style example for future personalization |
+| Hotkey | Command |
+|--------|---------|
+| ⌘⌥E | Refine Selection |
+| ⌘⌥⇧E | Refine Selection (Preview) |
+| ⌘⌥Z | Undo Refinement |
+| ⌘⌥T | Refine with Tone |
+| ⌘⌥S | Find a Word |
+| ⌘⌥M | Save as Style Example |
+
+---
+
+## Accessibility
+
+First hotkey press will prompt: "Raycast wants to control your computer using Accessibility." Click Open System Settings → toggle Raycast ON. **This is one-time, per-Mac.** Unlike v1, no per-binary grant is needed.
 
 ---
 
@@ -75,6 +83,16 @@ For detailed config schemas see:
 
 ---
 
+## Architecture
+
+LingoPulse v2 has two parts:
+- **Python daemon** (`lingopulse.daemon`) — a localhost HTTP server at 127.0.0.1:17823 wrapping Ollama + prompt building + ring buffer + history. Runs as a LaunchAgent.
+- **Raycast extension** (`extension/`) — TypeScript UI that calls the daemon. Installed via `npm run dev`.
+
+Config.json at `~/.config/lingopulse/config.json` is the source of truth; the extension reads it via the daemon's `/config` endpoint.
+
+---
+
 ## Daily Flow
 
 Select text, press ⌘⌥E. If the rewrite is bad, press ⌘⌥Z. When you want a specific tone, press ⌘⌥T. When you don't know the English word, press ⌘⌥S.
@@ -88,8 +106,9 @@ Copy these files and re-run `./scripts/install.sh`:
 ```
 ~/.config/lingopulse/config.json
 ~/.config/lingopulse/history.jsonl
-~/.config/lingopulse/tone_overrides.json
 ```
+
+Note: `tone_overrides.json` is no longer needed — per-app tone memory moved to Raycast's LocalStorage.
 
 Do NOT copy `~/.cache/lingopulse/` — it is session state and regenerates automatically.
 
@@ -110,24 +129,11 @@ Removes LaunchAgents. Preserves all user data under `~/.config/lingopulse/`.
 **"Refinement timed out"**
 Ollama may be loading the model cold. Run `ollama ps` — it should show `gemma4:e4b`. If the model is not listed, run `./scripts/warmup_ping.sh` to reload it. Logs at `~/Library/Logs/lingopulse-warmup.log`.
 
-**Hotkey does nothing**
-Check that `~/Projects/lingopluse/scripts/raycast` is listed as a script directory in Raycast → Extensions → Script Commands.
-
-**Shebang error after moving the project**
-The scripts hardcode `/Users/orshmuel/Projects/lingopluse/.venv/bin/python` in their shebangs. If you have cloned to a different path, run this from the project root:
-
-```bash
-find scripts/raycast -name '*.py' -exec sed -i '' "1s|.*|#!$(pwd)/.venv/bin/python|" {} \;
-```
+**Daemon not reachable**
+Check `~/Library/Logs/lingopulse-daemon.log`. Verify `curl -sf http://127.0.0.1:17823/status` returns a response. If Ollama is down, run `brew services restart ollama`.
 
 **Undo panel appears instead of direct undo**
 You clicked away after the refinement and the refined text is no longer selected. Manually re-select the text you want to revert, then press ⌘⌥Z.
-
-**Dictionary candidates 2 and 3 are not clickable**
-Raycast's fullOutput panel has no row callback in v1. The first candidate auto-copies to clipboard. For the other candidates, manually select the word text from the Raycast panel and copy it.
-
-**Tone picker does not remember my last choice visually**
-Raycast's dropdown is static (v1 limitation). The per-app override is stored in `tone_overrides.json`, but the dropdown always renders Casual/Neutral/Technical/Professional/Grammar-only in the same order.
 
 **Clipboard images or files are clobbered**
 LingoPulse preserves text-only clipboard content. Non-text items (images, files) are not preserved.
@@ -137,15 +143,21 @@ LingoPulse preserves text-only clipboard content. Non-text items (images, files)
 ## Honest Limitations
 
 - The Dictionary uses Gemma 4 E4B — strong for English but can silently mistranslate Hebrew queries. See `docs/product/dictionary-correctness.md` for the revisit criteria (upgrade to Qwen 7B if picked_index >= 1 rate stays high).
-- Shebangs are hardcoded to the install path. Moving the project requires patching them (see Troubleshooting above).
 - Undo requires the refined text to still be selected; otherwise the fallback panel activates.
-- Tone picker dropdown does not preselect the per-app last-used tone (Raycast static dropdown limitation).
 
 ---
 
 ## Project Structure
 
 ```
+extension/           # Raycast Extension (TypeScript)
+  src/
+    refine.tsx       # ⌘⌥E
+    undo.tsx         # ⌘⌥Z
+    preview.tsx      # ⌘⌥⇧E
+    tone-picker.tsx  # ⌘⌥T
+    dictionary.tsx   # ⌘⌥S
+    capture-style.tsx # ⌘⌥M
 lingopulse/          # Python package (core library)
   config.py          # config loader + defaults
   history.py         # jsonl log
@@ -158,20 +170,17 @@ lingopulse/          # Python package (core library)
   prompts.py         # tone table + Fixer prompt template + Cursor heuristic
   dictionary.py      # Hebrew detection + JSON parsing
   fixer.py           # unified refine() entry point
+  daemon.py          # localhost HTTP server (port 17823)
 scripts/
   install.sh         # idempotent installer
   uninstall.sh
   warmup_ping.sh     # Ollama keep-alive ping
-  raycast/           # Raycast Script Commands
-    fixer.py         # ⌘⌥E
-    undo.py          # ⌘⌥Z
-    preview.py       # ⌘⌥⇧E
-    tone_picker.py   # ⌘⌥T
-    dictionary.py    # ⌘⌥S
-    capture_style.py # ⌘⌥M
 launch_agents/       # plist templates
+  com.lingopulse.warmup.plist.template
+  com.lingopulse.keepalive.plist.template
+  com.lingopulse.daemon.plist.template
 docs/product/        # decision records (read these for context)
-tests/               # pytest suite (104 tests)
+tests/               # pytest suite (116 tests)
 ```
 
 ---

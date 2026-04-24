@@ -32,3 +32,7 @@ Ship this when any of the below fire:
 - New module: `lingopulse/style_memory.py` with `compile_summary()` and `load_summary()` functions.
 - `lingopulse/prompts.py::build_fixer_prompt` optionally appends the summary if `style.json` exists.
 - New Raycast script: `scripts/raycast/compile_style.py` — fullOutput mode, shows the compiled summary after writing it.
+
+## v2 NOTE (2026-04-24)
+
+Style-example capture is now the ⌘⌥M extension command (no more Raycast script). The payload writes to history.jsonl via the daemon's /capture_style endpoint. The v1.1 compile-summary plan is unchanged.
