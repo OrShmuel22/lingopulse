@@ -1,15 +1,70 @@
 ---
-title: Pipeline Architecture (v3) — purpose-built components, not generic LLM
-status: DECIDED — ready for /dev (Phase 1: Fixer)
+title: Pipeline Architecture (v3) — REJECTED after benchmark
+status: REJECTED — architecture sound in theory, no locally-runnable GEC model beats the LLM for this workload
 created: 2026-04-24
 updated: 2026-04-24
-supersedes_single_llm_approach_in: [fixer-undo.md, fixer-tone-context.md, dictionary-correctness.md]
 ---
 
-# Pipeline Architecture (v3)
+# Pipeline Architecture (v3) — REJECTED
 
-> **Status:** DECIDED — Phase 1 (Fixer pipeline) ready for `/dev`. Phase 2 (Dictionary retrieval) queued.
-> **Created:** 2026-04-24 | **Updated:** 2026-04-24
+> **Status:** REJECTED — reverted on 2026-04-24 after Phase 1 benchmark showed composite regression (best v3 attempt 89.3 vs v2 baseline 91.5, ship gate was 93).
+
+## Why rejected
+
+Implemented Phase 1 (GEC + tone + optional LLM) and benchmarked two GEC model sizes. Both regressed vs v2:
+
+| Metric | v2 (LLM only) | v3 small GEC (77M) | v3 large GEC (770M) |
+|--------|--------------:|-------------------:|--------------------:|
+| Composite | **91.5** | 89.3 | **87.7** |
+| Correctness | 93.2 | 91.0 | 90.6 |
+| Latency p95 | 1286 ms | 4528 ms | 4214 ms |
+| Latency max | 6.9 s | 24 s | 19.6 s |
+
+Smoke tests showed impressive wins on cherry-picked inputs (e.g., `your/should of/went/yestarday` all fixed correctly with the large model). But the 31-scenario benchmark exposed that the GEC layer:
+- Hallucinates on out-of-distribution input (typo-dense native writing, not JFLEG-style ESL errors)
+- Breaks scenarios that v2 handled fine (short Slack messages, code preservation)
+- Adds latency in series with the LLM (~500–3000ms extra) for no net correctness gain
+
+**The architecture idea is correct** — Grammarly uses a pipeline of specialized models. But production tools use models trained on proprietary high-quality data at scales not available as open weights. The gap between 77M/770M public GEC models and production-grade GEC is larger than I estimated.
+
+## What got reverted
+
+- `lingopulse/gec.py` (deleted)
+- `lingopulse/tone.py` (deleted)
+- `tests/test_gec.py`, `tests/test_tone.py`, `tests/test_fixer.py` (deleted)
+- `lingopulse/fixer.py` pipeline refactor (restored to v2 LLM-only)
+- `pipeline.*` config keys (removed)
+- `install.sh` GEC preload + daemon warmup (removed)
+- `torch` removed from requirements.txt + `.venv` (reclaimed ~2 GB)
+- GEC model HuggingFace caches deleted (reclaimed ~3.2 GB)
+
+## What got kept
+
+- The v2 LLM-only Fixer pipeline (current production state)
+- The 6 new failure-case benchmark scenarios added to `benchmarks/scenarios.json` (still valuable for any future architecture experiment)
+- The `forbid_tokens`, `must_contain_hebrew`, `min_output_words` check types in `benchmark.py` (still useful)
+- This doc itself (decision record)
+
+## Lessons for any future architectural attempt
+
+1. **Smoke tests are biased optimistically.** A cherry-picked input that showcases a model's strength tells you almost nothing about average-case behavior. Always run the full benchmark before committing.
+2. **Open-weight GEC models below 1B params are not reliable enough** to replace a generalist instruction-tuned LLM for dense-error correction. They work for clean ESL-style single-error inputs; they break on typo-dense native writing.
+3. **Latency composes.** GEC (500ms) + LLM (700ms) in series is 1200ms baseline before we add any network overhead. The v2 LLM-only path is 655ms total. A pipeline has to deliver massive quality gains to justify that cost — neither GEC size did.
+4. **`work-in-progress` disclaimers on HF model cards should be treated as hard blockers for production use**, not suggestions. The small GEC author explicitly warned of quality issues.
+5. **Architecture can be right while the components are wrong.** A real Grammarly-style pipeline needs grammar-specialized models we don't have locally. If MLX-quantized versions of larger models ship later, this could be worth revisiting — but not with public T5-based GEC weights at current sizes.
+
+## Status-quo after revert
+
+- v2 LLM-only Fixer with `gemma3:1b-it-qat`: composite **91.5**, p50 **655 ms**, known weaknesses (homophones, Slack capitalization, dictionary-1-of-3). Known-good baseline.
+- All 166 pre-v3 tests passing.
+- Daemon healthy on reverted code.
+- User-visible functionality: unchanged from start of this session.
+
+## If revisited later
+
+- Revisit when an open-source grammar-specialized model hits >1B params with proper benchmark evidence
+- Or when MLX support for T5 matures and large-GEC latency drops below the LLM path's
+- Or via fine-tuning: a LoRA on gemma3:1b-it-qat trained on user's own edit history (via `history.jsonl` captures) is the more realistic long-term path — it keeps the single-model architecture but adapts it to user's style
 
 ## The Real Problem
 
