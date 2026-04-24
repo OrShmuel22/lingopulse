@@ -69,21 +69,6 @@ else
     echo "Model $MODEL already pulled."
 fi
 
-# --- GEC model preload ---
-if "$PROJECT_ROOT/.venv/bin/python" -c "from lingopulse import config; print(config.get().get('pipeline',{}).get('gec_enabled', True))" | grep -qi "true"; then
-    GEC_MODEL=$("$PROJECT_ROOT/.venv/bin/python" -c "from lingopulse import config; print(config.get().get('pipeline',{}).get('gec_model','pszemraj/grammar-synthesis-small'))")
-    echo "Pre-downloading GEC model: $GEC_MODEL (first run ~30-60s)..."
-    "$PROJECT_ROOT/.venv/bin/python" -c "
-from lingopulse import gec
-gec.warmup()
-print('GEC model ready.')
-" || {
-        echo "WARN: GEC model preload failed. Fixer will fall back to LLM-only until GEC is available."
-    }
-else
-    echo "GEC disabled in config — skipping preload."
-fi
-
 # --- Set Ollama keep-alive env ---
 launchctl setenv OLLAMA_KEEP_ALIVE "$KEEP_ALIVE"
 echo "OLLAMA_KEEP_ALIVE=$KEEP_ALIVE set via launchctl."
