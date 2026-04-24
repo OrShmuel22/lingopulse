@@ -137,6 +137,19 @@ def _evaluate_refine(scenario: dict, response_data: dict, elapsed_ms: float) -> 
         for token in tokens:
             passed[f"preserves_token:{token}"] = token in refined
 
+    # Forbid tokens (output must NOT contain — catches hallucinated words)
+    if "forbid_tokens" in checks_spec:
+        for token in checks_spec["forbid_tokens"]:
+            passed[f"forbid_token:{token}"] = token not in refined
+
+    # Hebrew preservation (Hebrew input must yield Hebrew output — no stealth translation)
+    if checks_spec.get("must_contain_hebrew"):
+        passed["must_contain_hebrew"] = any("֐" <= ch <= "׿" for ch in refined)
+
+    # Minimum output length (catches over-summarization)
+    if "min_output_words" in checks_spec:
+        passed["min_output_words"] = _word_count(refined) >= checks_spec["min_output_words"]
+
     correctness = _correctness_score(passed)
 
     # Quality scoring

@@ -381,5 +381,108 @@
     "checks": {
       "saved_true": true
     }
+  },
+  {
+    "id": "refine-typo-no-hallucinate-01",
+    "endpoint": "refine",
+    "description": "Typo fix must not turn 'same' (misspelled 'sam') into a person's name",
+    "request": {
+      "selection": "hey team i wanna let u no that the deploy faild agian on staging, same bug as yestarday i think its relatd to the enviroment varibles we added",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "same",
+      "forbid_tokens": ["sam has", "Sam has"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-homophone-01",
+    "endpoint": "refine",
+    "description": "Fix your→you're, there→their, its→it's, should of→should have",
+    "request": {
+      "selection": "your right, there going to there office later. its to late to change they're plans now. we should of told them sooner",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["You're", "their office", "too late", "should have"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-long-content-preserve-01",
+    "endpoint": "refine",
+    "description": "Long formal email must preserve key phrases, not over-summarize",
+    "request": {
+      "selection": "Hi David, I wanted to follow up on our conversation from last week regarding the Q2 budget allocation. Our team has reviewed the proposed numbers and I think we have some concerns about the DevOps infrastructure line item being too conservative given our growth projections. Could we schedule a meeting this week to discuss?",
+      "app": "Mail",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["last week", "Q2", "DevOps"],
+      "min_output_words": 35
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-hebrew-stays-hebrew-01",
+    "endpoint": "refine",
+    "description": "Hebrew input with typos must return refined Hebrew, not English translation",
+    "request": {
+      "selection": "היי, רציתי להגיד שה-deployment שלי נתקע באמצע, ואין לי מושג למה. הייתי שמח אם מישיהו יוכל לעזור איתי לדבג את זה, זה כבר שעה שאני מנסה לבד",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "must_contain_hebrew": true,
+      "preserves_tokens": ["deployment"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-runon-content-01",
+    "endpoint": "refine",
+    "description": "Run-on sentence restructured without losing key details (20 minutes, index)",
+    "request": {
+      "selection": "ok so basically what happend is the deployment went fine but then the database migration stuck halfway through i dont know why maybe its the index building its been running for 20 minutes already and not sure if we should kill it or wait what do you think",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "migration",
+      "preserves_tokens": ["20 minutes", "index"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "dict-3-candidates-required-01",
+    "endpoint": "dictionary",
+    "description": "Clear professional-register query must return at least 3 candidates",
+    "request": {
+      "query": "a professional word for restarting a server after a crash"
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 3,
+      "register_match_formal": true
+    },
+    "expected_language": "english"
   }
 ]

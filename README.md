@@ -1,6 +1,6 @@
 # LingoPulse
 
-LingoPulse is a local, private English refinement tool for macOS power users. It provides instant text correction and word lookup via global hotkeys, with context-aware tone adjustment based on the active app. Runs entirely offline on Apple Silicon via Ollama + Gemma 4 E4B.
+LingoPulse is a local, private English refinement tool for macOS power users. It provides instant text correction and word lookup via global hotkeys, with context-aware tone adjustment based on the active app. Runs entirely offline on Apple Silicon via Ollama + Gemma 3 1B (QAT).
 
 ---
 
@@ -28,7 +28,7 @@ git clone <repo-url> ~/Projects/lingopluse
 cd ~/Projects/lingopluse
 python3 -m venv .venv
 .venv/bin/pip install -e .
-./scripts/install.sh          # pulls gemma4:e4b, installs LaunchAgents (daemon + keep-alive)
+./scripts/install.sh          # pulls gemma3:1b-it-qat, installs LaunchAgents (daemon + keep-alive)
 
 # Register the Raycast extension (one-time)
 cd extension
@@ -127,7 +127,7 @@ Removes LaunchAgents. Preserves all user data under `~/.config/lingopulse/`.
 ## Troubleshooting
 
 **"Refinement timed out"**
-Ollama may be loading the model cold. Run `ollama ps` — it should show `gemma4:e4b`. If the model is not listed, run `./scripts/warmup_ping.sh` to reload it. Logs at `~/Library/Logs/lingopulse-warmup.log`.
+Ollama may be loading the model cold. Run `ollama ps` — it should show `gemma3:1b-it-qat`. If the model is not listed, run `./scripts/warmup_ping.sh` to reload it. Logs at `~/Library/Logs/lingopulse-warmup.log`.
 
 **Daemon not reachable**
 Check `~/Library/Logs/lingopulse-daemon.log`. Verify `curl -sf http://127.0.0.1:17823/status` returns a response. If Ollama is down, run `brew services restart ollama`.
@@ -142,7 +142,7 @@ LingoPulse preserves text-only clipboard content. Non-text items (images, files)
 
 ## Honest Limitations
 
-- The Dictionary uses Gemma 4 E4B — strong for English but can silently mistranslate Hebrew queries. See `docs/product/dictionary-correctness.md` for the revisit criteria (upgrade to Qwen 7B if picked_index >= 1 rate stays high).
+- The Dictionary uses Gemma 3 1B (QAT) — strong for English but can silently mistranslate Hebrew queries. See `docs/product/dictionary-correctness.md` for the revisit criteria (upgrade to Qwen 7B if picked_index >= 1 rate stays high).
 - Undo requires the refined text to still be selected; otherwise the fallback panel activates.
 
 ---

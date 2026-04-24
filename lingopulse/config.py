@@ -3,11 +3,11 @@ import pathlib
 
 DEFAULTS = {
     "fixer": {
-        "model": "gemma4:e4b",
+        "model": "gemma3:1b-it-qat",
         "timeout_seconds": 15
     },
     "dictionary": {
-        "model": "gemma4:e4b",
+        "model": "gemma3:1b-it-qat",
         "timeout_seconds": 15
     },
     "keepalive": {
