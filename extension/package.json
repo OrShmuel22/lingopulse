@@ -9,11 +9,46 @@
   "license": "MIT",
   "commands": [
     {
-      "name": "hello",
-      "title": "LingoPulse Hello",
+      "name": "refine",
+      "title": "Refine Selection",
       "subtitle": "LingoPulse",
-      "description": "Verifies the Python daemon is reachable",
+      "description": "Refine the current selection using context-aware tone",
+      "mode": "no-view"
+    },
+    {
+      "name": "undo",
+      "title": "Undo Refinement",
+      "subtitle": "LingoPulse",
+      "description": "Restore the original text from the last refinement",
+      "mode": "no-view"
+    },
+    {
+      "name": "preview",
+      "title": "Refine Selection (Preview)",
+      "subtitle": "LingoPulse",
+      "description": "Refine with an inline diff preview before committing",
       "mode": "view"
+    },
+    {
+      "name": "tone-picker",
+      "title": "Refine with Tone",
+      "subtitle": "LingoPulse",
+      "description": "Pick a tone and refine the selection",
+      "mode": "view"
+    },
+    {
+      "name": "dictionary",
+      "title": "Find a Word",
+      "subtitle": "LingoPulse",
+      "description": "Search for English words by concept; Hebrew input supported",
+      "mode": "view"
+    },
+    {
+      "name": "capture-style",
+      "title": "Save as Style Example",
+      "subtitle": "LingoPulse",
+      "description": "Log the selection as a style example for future personalization",
+      "mode": "no-view"
     }
   ],
   "dependencies": {
