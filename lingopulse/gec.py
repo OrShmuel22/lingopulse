@@ -81,6 +81,11 @@ def correct(text: str, max_length: int = 512) -> str:
     return result
 
 
+def is_loaded() -> bool:
+    """Return True if the GEC model has been successfully warmed up."""
+    return _model is not None and _tokenizer is not None
+
+
 def _no_grad():
     import torch
     return torch.no_grad()

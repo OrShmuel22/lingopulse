@@ -101,9 +101,12 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, _err("not found"))
 
     def _handle_status(self, cfg: dict) -> None:
+        from lingopulse import gec
         model = cfg["fixer"]["model"]
         healthy, model_loaded = _probe_ollama_ps(model)
-        self._send(200, _ok({"healthy": healthy, "model": model, "model_loaded": model_loaded}))
+        gec_enabled = cfg.get("pipeline", {}).get("gec_enabled", True)
+        gec_loaded = gec.is_loaded() if gec_enabled else None
+        self._send(200, _ok({"healthy": healthy, "model": model, "model_loaded": model_loaded, "gec_loaded": gec_loaded}))
 
     def _handle_config(self, cfg: dict) -> None:
         self._send(200, _ok(cfg))
@@ -227,6 +230,16 @@ def _shutdown_handler(server: ThreadingHTTPServer):
 if __name__ == "__main__":
     cfg = _config.get()
     port = cfg.get("daemon", {}).get("port", 17823)
+
+    if cfg.get("pipeline", {}).get("gec_enabled", True):
+        try:
+            from lingopulse import gec
+            print(f"[{_ts()}] warming GEC model...", flush=True)
+            gec.warmup()
+            print(f"[{_ts()}] GEC ready.", flush=True)
+        except Exception as e:
+            print(f"[{_ts()}] WARN: GEC warmup failed ({e}) — fixer will fall back to LLM.", flush=True)
+
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     signal.signal(signal.SIGTERM, _shutdown_handler(server))
     print(f"[{_ts()}] lingopulse daemon listening on 127.0.0.1:{port}", flush=True)
