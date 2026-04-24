@@ -48,6 +48,9 @@ DEFAULTS = {
     },
     "tone_overrides": {
         "path": "~/.config/lingopulse/tone_overrides.json"
+    },
+    "daemon": {
+        "port": 17823
     }
 }
 

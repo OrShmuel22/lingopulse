@@ -104,6 +104,7 @@ CALENDAR_INTERVAL=$(gen_interval "$START_HOUR" "$END_HOUR" "$INTERVAL")
 # --- Render plists ---
 WARMUP_PLIST="$LAUNCH_AGENTS_DIR/com.lingopulse.warmup.plist"
 KEEPALIVE_PLIST="$LAUNCH_AGENTS_DIR/com.lingopulse.keepalive.plist"
+DAEMON_PLIST="$LAUNCH_AGENTS_DIR/com.lingopulse.daemon.plist"
 
 sed -e "s|{{PROJECT_ROOT}}|$PROJECT_ROOT|g" \
     -e "s|{{HOME}}|$HOME|g" \
@@ -119,9 +120,14 @@ t = t.replace("{{CALENDAR_INTERVAL_ARRAY}}", """$CALENDAR_INTERVAL""")
 pathlib.Path("$KEEPALIVE_PLIST").write_text(t)
 PYEOF
 
+sed -e "s|{{PROJECT_ROOT}}|$PROJECT_ROOT|g" \
+    -e "s|{{HOME}}|$HOME|g" \
+    "$PROJECT_ROOT/launch_agents/com.lingopulse.daemon.plist.template" > "$DAEMON_PLIST"
+
 echo "Plists written:"
 echo "  $WARMUP_PLIST"
 echo "  $KEEPALIVE_PLIST"
+echo "  $DAEMON_PLIST"
 
 # --- Load LaunchAgents (idempotent) ---
 GUI_UID="gui/$(id -u)"
@@ -129,11 +135,28 @@ GUI_UID="gui/$(id -u)"
 # Bootout first (ignore errors — may not be loaded)
 launchctl bootout "$GUI_UID/com.lingopulse.warmup" 2>/dev/null || true
 launchctl bootout "$GUI_UID/com.lingopulse.keepalive" 2>/dev/null || true
+launchctl bootout "$GUI_UID/com.lingopulse.daemon" 2>/dev/null || true
 
 # Now bootstrap
 launchctl bootstrap "$GUI_UID" "$WARMUP_PLIST"
 launchctl bootstrap "$GUI_UID" "$KEEPALIVE_PLIST"
+launchctl bootstrap "$GUI_UID" "$DAEMON_PLIST"
 echo "LaunchAgents loaded."
+
+# --- Wait for daemon to be reachable ---
+PORT=$("$PROJECT_ROOT/.venv/bin/python" -c "from lingopulse import config; c=config.get(); print(c['daemon']['port'])")
+echo "Waiting for daemon on port $PORT..."
+for i in $(seq 1 10); do
+    if curl -sf "http://127.0.0.1:$PORT/status" >/dev/null 2>&1; then
+        echo "Daemon is up."
+        break
+    fi
+    if [ "$i" -eq 10 ]; then
+        echo "ERROR: Daemon did not start within 10 seconds. Check logs at $HOME/Library/Logs/lingopulse-daemon.log" >&2
+        exit 1
+    fi
+    sleep 1
+done
 
 # --- Immediate warmup (so user doesn't wait for next scheduled tick) ---
 bash "$PROJECT_ROOT/scripts/warmup_ping.sh" &
@@ -157,4 +180,7 @@ echo "     ⌘⌥M        Save as Style Example"
 echo ""
 echo "  3. Config lives at $CONFIG_DIR/config.json"
 echo "     Logs: $LOGS_DIR/lingopulse-{warmup,keepalive}.log"
+echo ""
+echo "  LingoPulse daemon running at http://127.0.0.1:$PORT"
+echo "  Logs: ~/Library/Logs/lingopulse-daemon.log"
 echo ""
