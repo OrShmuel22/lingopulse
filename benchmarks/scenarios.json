@@ -1,0 +1,385 @@
+[
+  {
+    "id": "refine-slack-01",
+    "endpoint": "refine",
+    "description": "Casual Slack question about deployment status",
+    "request": {
+      "selection": "hey can u check if the deploy went thru? i dont see the changes on prod",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "deployment"
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-slack-02",
+    "endpoint": "refine",
+    "description": "Casual Slack status update mid-sprint",
+    "request": {
+      "selection": "just a quick update – im blocked on the auth PR, waiting for johns review since yesterday",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "blocked"
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-slack-03",
+    "endpoint": "refine",
+    "description": "Casual Slack request to push a meeting",
+    "request": {
+      "selection": "hey can we push the 3pm standup by like 30 mins? have a hard stop at 3",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "standup"
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-slack-04",
+    "endpoint": "refine",
+    "description": "Casual Slack correction after mistake",
+    "request": {
+      "selection": "actually nvm ignore my last msg – the bug was on my end, fixed it already",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-slack-05",
+    "endpoint": "refine",
+    "description": "Casual Slack acknowledgment",
+    "request": {
+      "selection": "yep sounds good, ill take care of it after lunch",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-email-01",
+    "endpoint": "refine",
+    "description": "Professional email: polite request to teammate for code review",
+    "request": {
+      "selection": "Hi Sarah, I wanted to check if you had a chance to look at the pull request I submitted on Monday. It's blocking the release and I'd really appreciate your review when you get a moment. Let me know if you have any questions. Thanks",
+      "app": "Mail",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "review"
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-email-02",
+    "endpoint": "refine",
+    "description": "Professional email: sprint status update to manager",
+    "request": {
+      "selection": "Hi Mark, wanted to send a quick update on where we are this sprint. We completed the authentication module and the dashboard redesign. The payment integration is in progress but we hit an unexpected issue with the Stripe webhook handling that is taking longer than estimated. We expect to have it resolved by Thursday. Let me know if you need more details.",
+      "app": "Mail",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "Stripe"
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-email-03",
+    "endpoint": "refine",
+    "description": "Professional email: polite bug report to vendor",
+    "request": {
+      "selection": "Hello, I am writing to report an issue we have encountered with your SDK version 3.2.1. When we call the batch export endpoint with more than 500 records the response consistently returns a 500 error. We have confirmed this is reproducible in our staging environment and have attached logs for your reference. We would appreciate guidance on a fix or workaround as this is affecting our production workflow. Thank you for your help.",
+      "app": "Mail",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "500"
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-long-incident-01",
+    "endpoint": "refine",
+    "description": "Neutral tone: 300-word incident summary stress test",
+    "request": {
+      "selection": "Incident Summary – April 19 2026\n\nAt 14:32 UTC our monitoring system triggered a P1 alert for elevated error rates on the payments service. The on-call engineer acknowledged the alert within 4 minutes and began triaging. Initial investigation pointed to increased latency on database queries in the checkout flow, specifically the inventory lock table which was showing wait times of over 800ms per transaction.\n\nAt 14:48 UTC the team identified a query that had regressed after the 14:10 deploy. A recent migration had removed a composite index on (user_id, product_id) in the inventory_locks table, causing full table scans under load. The payments service degraded because checkout transactions were timing out waiting for the lock query to complete.\n\nMitigation began at 14:55 UTC by re-adding the index via a hotfix migration script applied directly to the primary database. The index build completed in approximately 6 minutes. Error rates began recovering at 15:03 UTC and returned to baseline by 15:11 UTC. Total customer-visible impact window was 39 minutes.\n\nRoot cause: the migration in PR-2847 removed the composite index as part of a schema cleanup without a corresponding load test to validate query performance at production traffic levels. The code review process did not catch the performance implication.\n\nAction items: add a required performance review step to the database migration checklist, introduce an automated index coverage check in CI, and require staging load tests for any migration touching tables with over 1 million rows. Owner: infrastructure team. Target completion: May 3 2026.",
+      "app": "Notes",
+      "tone_override": "Neutral"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "PR-2847"
+    },
+    "expected_tone": "Neutral",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-code-preserve-01",
+    "endpoint": "refine",
+    "description": "Refine text that contains React code identifiers that must not be mutated",
+    "request": {
+      "selection": "i added the click handler in handleClick() and also the side effect logic lives in useEffect – both need tests before we merge",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["handleClick()", "useEffect"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": ["handleClick()", "useEffect"]
+  },
+  {
+    "id": "refine-code-preserve-02",
+    "endpoint": "refine",
+    "description": "Refine text mentioning a React hook that must survive verbatim",
+    "request": {
+      "selection": "the problem is in useEffect – its running on every render because the dep array is wrong. also the useCallback wrapping handleClick() isnt memoizing correctly",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["handleClick()", "useEffect", "useCallback"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": ["handleClick()", "useEffect", "useCallback"]
+  },
+  {
+    "id": "refine-url-preserve-01",
+    "endpoint": "refine",
+    "description": "Refine message containing a PR URL that must not be touched",
+    "request": {
+      "selection": "hey can u take a look at https://github.com/acme-corp/backend/pull/2847 before EOD? its blocking the release",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["https://github.com/acme-corp/backend/pull/2847"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": ["https://github.com/acme-corp/backend/pull/2847"]
+  },
+  {
+    "id": "refine-url-preserve-02",
+    "endpoint": "refine",
+    "description": "Refine message containing a Jira ticket URL that must survive intact",
+    "request": {
+      "selection": "the full context is in https://acme.atlassian.net/browse/PLAT-4421 – i added the repro steps and logs there",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["https://acme.atlassian.net/browse/PLAT-4421"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": ["https://acme.atlassian.net/browse/PLAT-4421"]
+  },
+  {
+    "id": "dict-en-01",
+    "endpoint": "dictionary",
+    "description": "English: professional word for restarting a server",
+    "request": {
+      "query": "professional word for restart a server"
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1,
+      "register_match_formal": true
+    },
+    "expected_language": "english"
+  },
+  {
+    "id": "dict-en-02",
+    "endpoint": "dictionary",
+    "description": "English: casual way to agree",
+    "request": {
+      "query": "casual way to say I agree"
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1
+    },
+    "expected_language": "english"
+  },
+  {
+    "id": "dict-en-03",
+    "endpoint": "dictionary",
+    "description": "English: technical term for queue overflow",
+    "request": {
+      "query": "technical term for when a queue overflows and drops messages"
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1
+    },
+    "expected_language": "english"
+  },
+  {
+    "id": "dict-en-04",
+    "endpoint": "dictionary",
+    "description": "English: professional word for being overwhelmed",
+    "request": {
+      "query": "word for being overwhelmed at work but professional"
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1,
+      "register_match_formal": true
+    },
+    "expected_language": "english"
+  },
+  {
+    "id": "dict-en-05",
+    "endpoint": "dictionary",
+    "description": "English: word for the feeling of missing out",
+    "request": {
+      "query": "English word for the feeling of missing out on something"
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1
+    },
+    "expected_language": "english"
+  },
+  {
+    "id": "dict-he-01",
+    "endpoint": "dictionary",
+    "description": "Hebrew: professional way to say restart a server",
+    "request": {
+      "query": "להפעיל מחדש שרת באופן מקצועי"
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1,
+      "has_confidence_field": true,
+      "register_match_formal": true
+    },
+    "expected_language": "hebrew"
+  },
+  {
+    "id": "dict-he-02",
+    "endpoint": "dictionary",
+    "description": "Hebrew: feeling overwhelmed at work",
+    "request": {
+      "query": "רגש של להרגיש מוצף בעבודה"
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1,
+      "has_confidence_field": true
+    },
+    "expected_language": "hebrew"
+  },
+  {
+    "id": "dict-he-03",
+    "endpoint": "dictionary",
+    "description": "Hebrew: action verb for closing a task",
+    "request": {
+      "query": "פעולה של לסגור משימה"
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1,
+      "has_confidence_field": true
+    },
+    "expected_language": "hebrew"
+  },
+  {
+    "id": "dict-he-04",
+    "endpoint": "dictionary",
+    "description": "Hebrew: business formal word for approving a budget",
+    "request": {
+      "query": "מילה עסקית רשמית לאישור תקציב"
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1,
+      "has_confidence_field": true,
+      "register_match_formal": true
+    },
+    "expected_language": "hebrew"
+  },
+  {
+    "id": "dict-he-05",
+    "endpoint": "dictionary",
+    "description": "Hebrew: casual way to say you're on it",
+    "request": {
+      "query": "ביטוי יומיומי שאני עובד על זה עכשיו"
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1,
+      "has_confidence_field": true
+    },
+    "expected_language": "hebrew"
+  },
+  {
+    "id": "undo-01",
+    "endpoint": "undo",
+    "description": "Undo: refine input, then undo, expect original back byte-exact",
+    "setup_refine": {
+      "selection": "the deploy is broke and we need to rollback asap",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "original_exact_match": true
+    }
+  },
+  {
+    "id": "capture-style-01",
+    "endpoint": "capture_style",
+    "description": "Capture style: save a polished example sentence",
+    "request": {
+      "text": "We identified the root cause as a missing composite index and restored service within 39 minutes.",
+      "app": "Notes"
+    },
+    "checks": {
+      "saved_true": true
+    }
+  }
+]
