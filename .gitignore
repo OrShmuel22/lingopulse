@@ -12,3 +12,7 @@ dist/
 # Editor
 .vscode/
 .idea/
+
+# Raycast extension
+extension/node_modules/
+extension/dist/
