@@ -47,7 +47,7 @@ All timing knobs live in `~/.config/lingopulse/config.json` so you can tune with
 ### Login warmup
 
 - A `LaunchAgent` (`com.lingopulse.warmup.plist`, `RunAtLoad=true`) fires once at login.
-- Runs a ping script: `curl -s http://127.0.0.1:11434/api/generate -d '{"model":"gemma3:4b-it-qat","prompt":" ","keep_alive":"30m","stream":false}'`.
+- Runs a ping script: `curl -s http://127.0.0.1:11434/api/generate -d '{"model":"gemma4:e4b","prompt":" ","keep_alive":"30m","stream":false}'`.
 - The one cold load of the day happens while you're unlocking your screen, before you reach for a hotkey.
 - If Ollama isn't running yet (user hasn't launched it), the script retries once after 10 s, then exits silently. Next scheduled ping will pick it up.
 
@@ -104,15 +104,15 @@ Already covered by `fixer-undo.md` Task 7 (inference lock). No new work here.
 
 1. **LaunchAgent install UX:** a personal tool so no installer needed, but the plist still needs to land in `~/Library/LaunchAgents/` and be loaded with `launchctl bootstrap`. A 10-line `install.sh` is enough — decide during /dev whether to script it or just document the commands.
 2. **Ping script resilience:** if Ollama isn't running at the scheduled time, the ping silently fails. Acceptable for v1. If this causes flaky warm states, add a `brew services start ollama` in the login warmup.
-3. **Thermal reality on M4 Air (fanless):** gemma3:4b-it-qat inference on short (<50 word) prompts should not sustain long enough to throttle. If longer refinements (emails) show degraded wall-clock time during sustained use, revisit quantization or model size. Not a v1 blocker.
+3. **Thermal reality on M4 Air (fanless):** gemma4:e4b inference on short (<50 word) prompts should not sustain long enough to throttle. If longer refinements (emails) show degraded wall-clock time during sustained use, revisit quantization or model size. Not a v1 blocker.
 
 ## Tasks (for /dev)
 
 | # | Task | Area | Definition of Done |
 |---|------|------|---------------------|
 | 1 | Ship config.json schema + loader with documented defaults | Backend / Python | `~/.config/lingopulse/config.json` is created on first run with the defaults shown in this doc. Changing a value and restarting Raycast picks up the change. Missing keys fall back to defaults without crashing. |
-| 2 | Ship login warmup LaunchAgent | Infrastructure | After `launchctl bootstrap`-ing the plist, logging out and back in results in Ollama showing `gemma3:4b-it-qat` loaded in `ollama ps` within 30 s of login, with no hotkey press. |
-| 3 | Ship scheduled keep-alive LaunchAgent | Infrastructure | At 09:00 (inside active hours), `ollama ps` shows `gemma3:4b-it-qat` loaded. At 23:00 + 35 min (outside active hours + past keep-alive), `ollama ps` shows it unloaded. Interval and active hours honor `config.json`. |
+| 2 | Ship login warmup LaunchAgent | Infrastructure | After `launchctl bootstrap`-ing the plist, logging out and back in results in Ollama showing `gemma4:e4b` loaded in `ollama ps` within 30 s of login, with no hotkey press. |
+| 3 | Ship scheduled keep-alive LaunchAgent | Infrastructure | At 09:00 (inside active hours), `ollama ps` shows `gemma4:e4b` loaded. At 23:00 + 35 min (outside active hours + past keep-alive), `ollama ps` shows it unloaded. Interval and active hours honor `config.json`. |
 | 4 | Set OLLAMA_KEEP_ALIVE=30m in Ollama env | Infrastructure | `launchctl getenv OLLAMA_KEEP_ALIVE` returns `30m`. After a fresh request, `ollama ps` shows the model remains loaded for ≥28 min of idle. Value is read from config.json, not hardcoded. |
 | 5 | Immediate HUD feedback on hotkey press (≤100ms) | UX | Pressing `Cmd+Opt+E` causes a "🧠 Refining…" HUD to appear within 100 ms, even when inference takes longer. If the refinement completes in <100 ms (impossibly fast), no flicker HUD appears. |
 | 6 | Cold-start HUD upgrade after 2s | UX | If inference is still running 2 s after the hotkey press, the HUD updates with "Loading model — first use of the session…" subtext. Threshold reads from config.json. |

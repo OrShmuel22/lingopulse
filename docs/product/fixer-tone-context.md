@@ -43,7 +43,7 @@ Plus: the app-to-tone map lives in `~/.config/lingopulse/config.json` and is use
 
 ### Why this combo (alternatives considered)
 
-- **E only:** relies entirely on gemma3:4b-it-qat's self-judgment. Small model, inconsistent. Silent failures on edge cases.
+- **E only:** relies entirely on gemma4:e4b's self-judgment. Small model, inconsistent. Silent failures on edge cases.
 - **T only:** spec defaults stay wrong; you have to remember to override. Forgetting = silent failure.
 - **E + T + C (full Accessibility scraping of channel names, Slack/Cursor internals):** smartest defaults, but fragile. Slack UI changes break it. Privacy-adjacent. Too much work for a personal tool v1.
 

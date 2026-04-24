@@ -133,7 +133,7 @@ brew services start ollama
 
 # Install
 git clone <repo> ~/Projects/lingopluse && cd ~/Projects/lingopluse
-./scripts/install.sh    # pulls gemma3:4b-it-qat, sets keep-alive, installs LaunchAgents (including new daemon agent)
+./scripts/install.sh    # pulls gemma4:e4b, sets keep-alive, installs LaunchAgents (including new daemon agent)
 
 # Extension — one command
 cd extension && npm ci && npm run dev
@@ -171,7 +171,7 @@ The timing rules from `fixer-performance.md` (100ms show, 2s cold-start notice, 
 
 ### What does NOT change
 
-- Ollama + model (still Gemma 3 4B QAT, same keep-alive schedule)
+- Ollama + model (still Gemma 4 E4B, same keep-alive schedule)
 - Ring buffer format + file path
 - history.jsonl format + file path
 - config.json schema

@@ -1,6 +1,6 @@
 # LingoPulse
 
-LingoPulse is a local, private English refinement tool for macOS power users. It provides instant text correction and word lookup via global hotkeys, with context-aware tone adjustment based on the active app. Runs entirely offline on Apple Silicon via Ollama + Gemma 3 4B.
+LingoPulse is a local, private English refinement tool for macOS power users. It provides instant text correction and word lookup via global hotkeys, with context-aware tone adjustment based on the active app. Runs entirely offline on Apple Silicon via Ollama + Gemma 4 E4B.
 
 ---
 
@@ -108,7 +108,7 @@ Removes LaunchAgents. Preserves all user data under `~/.config/lingopulse/`.
 ## Troubleshooting
 
 **"Refinement timed out"**
-Ollama may be loading the model cold. Run `ollama ps` — it should show `gemma3:4b-it-qat`. If the model is not listed, run `./scripts/warmup_ping.sh` to reload it. Logs at `~/Library/Logs/lingopulse-warmup.log`.
+Ollama may be loading the model cold. Run `ollama ps` — it should show `gemma4:e4b`. If the model is not listed, run `./scripts/warmup_ping.sh` to reload it. Logs at `~/Library/Logs/lingopulse-warmup.log`.
 
 **Hotkey does nothing**
 Check that `~/Projects/lingopluse/scripts/raycast` is listed as a script directory in Raycast → Extensions → Script Commands.
@@ -136,7 +136,7 @@ LingoPulse preserves text-only clipboard content. Non-text items (images, files)
 
 ## Honest Limitations
 
-- The Dictionary uses Gemma 3 4B Q4 — strong for English but can silently mistranslate Hebrew queries. See `docs/product/dictionary-correctness.md` for the revisit criteria (upgrade to Qwen 7B if picked_index >= 1 rate stays high).
+- The Dictionary uses Gemma 4 E4B — strong for English but can silently mistranslate Hebrew queries. See `docs/product/dictionary-correctness.md` for the revisit criteria (upgrade to Qwen 7B if picked_index >= 1 rate stays high).
 - Shebangs are hardcoded to the install path. Moving the project requires patching them (see Troubleshooting above).
 - Undo requires the refined text to still be selected; otherwise the fallback panel activates.
 - Tone picker dropdown does not preselect the per-app last-used tone (Raycast static dropdown limitation).

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Read model from config.json; fall back to gemma3:4b-it-qat
+# Read model from config.json; fall back to gemma4:e4b
 CONFIG="$HOME/.config/lingopulse/config.json"
-MODEL="gemma3:4b-it-qat"
+MODEL="gemma4:e4b"
 KEEP_ALIVE="30m"
 
 if [ -f "$CONFIG" ]; then

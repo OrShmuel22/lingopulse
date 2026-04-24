@@ -17,7 +17,7 @@ The Dictionary is the scariest part of LingoPulse because its mistakes are invis
 
 Two underlying causes:
 
-1. **Model capacity.** gemma3:4b-it-qat is small. Hebrew→English and register judgment ("formal? archaic? current?") are weak points. It will confidently produce "rejuvenate" when you wanted "restart."
+1. **Model capacity.** gemma4:e4b is small. Hebrew→English and register judgment ("formal? archaic? current?") are weak points. It will confidently produce "rejuvenate" when you wanted "restart."
 2. **Output format.** Bare-word output forces a non-native user to conjugate it correctly into their sentence — exactly the skill they're outsourcing.
 
 ## Scenarios
@@ -36,7 +36,7 @@ Two underlying causes:
 
 Specifically:
 
-1. **Model:** gemma3:4b-it-qat only. No second model for v1. Accept the correctness risk in exchange for simplicity (one model, one keep-alive schedule, ~2.5 GB memory total).
+1. **Model:** gemma4:e4b only. No second model for v1. Accept the correctness risk in exchange for simplicity (one model, one keep-alive schedule, ~2.5 GB memory total).
 2. **UX:** Single input field, 3 word suggestions with 1-sentence examples — per spec.
 3. **Hebrew uncertainty flag** (the one guardrail): when the query contains Hebrew characters, the prompt explicitly asks the model to mark uncertain candidates with `⚠️` and add a "low confidence" label next to the word. Best-effort — see Honest Limitations below.
 4. **Query logging** (the data-collection): every Dictionary query + the 3 suggestions + which one the user picked is logged to `~/.config/lingopulse/history.jsonl`. No network calls — all local. Enables a later review of "did I keep using the tool for Hebrew queries? did I stop picking the first option?" to decide whether to invest in a bigger model.
@@ -44,13 +44,13 @@ Specifically:
 ### Why this, not B+C+D+E
 
 Chose simplicity for v1 because:
-- You have working history with gemma3:4b-it-qat from the Fixer. Starting there and measuring is faster than designing a two-model system speculatively.
+- You have working history with gemma4:e4b from the Fixer. Starting there and measuring is faster than designing a two-model system speculatively.
 - A 7B second model adds ~4.5 GB memory + its own keep-alive schedule + Ollama config complexity. If correctness is good enough with 4B + Hebrew flag, that complexity is waste.
 - The data log lets us make the "bigger model" call based on real failure rates, not intuition.
 
 ## Honest Limitations (read before shipping)
 
-The Hebrew uncertainty flag is best-effort, not reliable. gemma3:4b-it-qat has poor calibrated self-doubt — it will sometimes mark correct picks as ⚠️ and miss marking wrong ones. **Do not rely on the flag as a correctness guarantee.** Treat the Dictionary's output for Hebrew queries as "probably right, verify critical words."
+The Hebrew uncertainty flag is best-effort, not reliable. gemma4:e4b has poor calibrated self-doubt — it will sometimes mark correct picks as ⚠️ and miss marking wrong ones. **Do not rely on the flag as a correctness guarantee.** Treat the Dictionary's output for Hebrew queries as "probably right, verify critical words."
 
 In practice this means: for a Slack message to a friend, trust it. For a legal email, cross-reference the picked word against a dictionary or ask a native speaker.
 
@@ -63,7 +63,7 @@ If after two weeks of real use you find yourself distrusting the Dictionary (pic
 1. User presses `Cmd+Opt+S`. Raycast input opens.
 2. User types query. No extra field in v1.
 3. Detect Hebrew characters (Unicode block `U+0590–U+05FF`) → select Hebrew-path prompt. Else → English-path prompt.
-4. Send to gemma3:4b-it-qat via Ollama.
+4. Send to gemma4:e4b via Ollama.
 5. Parse structured response (see below).
 6. Render Raycast list with flags.
 7. User picks → clipboard → paste into active app.
@@ -143,7 +143,7 @@ Useful signals when reviewing later:
 
 ## Open Questions (flag for /dev)
 
-1. **JSON parsing robustness:** gemma3:4b-it-qat sometimes wraps JSON in markdown fences, adds commentary, or breaks syntax. `/dev` should implement resilient parsing (strip fences, extract first JSON array, fall back to regex if parsing fails, show an error HUD rather than crash).
+1. **JSON parsing robustness:** gemma4:e4b sometimes wraps JSON in markdown fences, adds commentary, or breaks syntax. `/dev` should implement resilient parsing (strip fences, extract first JSON array, fall back to regex if parsing fails, show an error HUD rather than crash).
 2. **Empty results:** if the model returns fewer than 3 candidates (Hebrew path allows this), UI should gracefully show however many it returned. Don't pad with fakes.
 3. **Paste target:** spec says "pastes it into the active app." Resolve the same way as the Fixer — the app that was frontmost before Raycast took focus. Needs the same text-injection fallback matrix as `fixer-undo.md` Task 9.
 
@@ -168,7 +168,7 @@ If revisiting: open this doc, promote the `Option B+C+D+E` section from history 
 | 5 | Implement paste-into-previous-app flow | Integration | Selecting a candidate copies the `word` to the clipboard and pastes it at the cursor of the app that was frontmost before Raycast opened. Works in Slack, Mail, Cursor; uses the same text-injection fallback as the Fixer. |
 | 6 | Implement query logging to history.jsonl | Backend | Every Dictionary query appends one JSON line to `~/.config/lingopulse/history.jsonl` with the schema above. File is append-only, grows unbounded (fine at this scale — <1 KB per query, <365 KB/year at heavy use). |
 | 7 | Document "Honest Limitations" in first-run message | UX | On first-ever invocation of the Dictionary, a one-time Raycast HUD shows: "Heads up: Hebrew queries may return uncertain translations, marked with ⚠️. For important messages, verify critical words." Dismissible; never shown again. |
-| 8 | QA: 20-query Hebrew correctness baseline | QA | `docs/product/dictionary-baseline.md` exists listing 20 Hebrew queries, the top candidate gemma3:4b-it-qat returned, whether a native Hebrew speaker judges it correct. Baseline informs the "revisit criteria" threshold. |
+| 8 | QA: 20-query Hebrew correctness baseline | QA | `docs/product/dictionary-baseline.md` exists listing 20 Hebrew queries, the top candidate gemma4:e4b returned, whether a native Hebrew speaker judges it correct. Baseline informs the "revisit criteria" threshold. |
 
 ## Hand-off
 
