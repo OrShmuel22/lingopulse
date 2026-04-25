@@ -24,6 +24,7 @@ final class Preferences: ObservableObject {
         static let debounceSeconds = "lp.debounceSeconds"
         static let autoDismissSeconds = "lp.autoDismissSeconds"
         static let logLevel = "lp.logLevel"
+        static let onboardingCompleted = "lp.onboardingCompleted"
     }
 
     static let defaultExcludedApps: Set<String> = [
@@ -54,6 +55,9 @@ final class Preferences: ObservableObject {
     @Published var logLevel: String {
         didSet { defaults.set(logLevel, forKey: Key.logLevel) }
     }
+    @Published var onboardingCompleted: Bool {
+        didSet { defaults.set(onboardingCompleted, forKey: Key.onboardingCompleted) }
+    }
 
     private init() {
         self.enabled = defaults.object(forKey: Key.enabled) as? Bool ?? true
@@ -65,5 +69,6 @@ final class Preferences: ObservableObject {
         self.debounceSeconds = defaults.object(forKey: Key.debounceSeconds) as? Double ?? 1.5
         self.autoDismissSeconds = defaults.object(forKey: Key.autoDismissSeconds) as? Double ?? 8.0
         self.logLevel = defaults.string(forKey: Key.logLevel) ?? "Basic"
+        self.onboardingCompleted = defaults.object(forKey: Key.onboardingCompleted) as? Bool ?? false
     }
 }

@@ -7,6 +7,15 @@ CONFIG="${1:-debug}"
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$APP_DIR"
 
+echo "==> Building IME bundle first"
+"$APP_DIR/scripts/build-ime-bundle.sh" "$CONFIG"
+
+IME_BUNDLE="$APP_DIR/LingoPulseIME.app"
+if [ ! -d "$IME_BUNDLE" ]; then
+    echo "ERROR: LingoPulseIME.app not found at $IME_BUNDLE" >&2
+    exit 1
+fi
+
 echo "==> swift build --configuration $CONFIG"
 swift build --configuration "$CONFIG"
 
@@ -23,6 +32,9 @@ mkdir -p "$BUNDLE/Contents/Resources"
 
 cp "$BIN_PATH" "$BUNDLE/Contents/MacOS/LingoPulseApp"
 cp Resources/Info.plist "$BUNDLE/Contents/Info.plist"
+
+echo "==> Embedding LingoPulseIME.app into LingoPulse.app/Contents/Resources/"
+cp -R "$IME_BUNDLE" "$BUNDLE/Contents/Resources/LingoPulseIME.app"
 
 # Ad-hoc sign with App Group entitlements so the main app can write to the
 # shared UserDefaults suite (group.com.lingopulse.shared) that the IME reads.

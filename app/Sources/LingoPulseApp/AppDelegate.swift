@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeys: HotkeyManager?
     private var coordinator: AppCoordinator?
     private var prefsObservers: Set<AnyCancellable> = []
+    private var onboardingWindow: OnboardingWindow?
 
     @MainActor func applicationDidFinishLaunching(_ notification: Notification) {
         Notifications.requestAuthorizationIfNeeded()
@@ -47,6 +48,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         observeRebinds(coordinator: coordinator)
+
+        if !prefs.onboardingCompleted {
+            let onboarding = OnboardingWindow()
+            self.onboardingWindow = onboarding
+            onboarding.show {
+                prefs.onboardingCompleted = true
+                self.onboardingWindow = nil
+            }
+        }
+
         Log.info("app launched, menu bar ready, hotkeys registered.")
     }
 
