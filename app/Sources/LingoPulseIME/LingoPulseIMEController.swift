@@ -47,11 +47,15 @@ final class LingoPulseIMEController: IMKInputController {
     private var originalText: String = ""
     private var bufferUTF16Length: Int = 0
 
+    // Retains the app-activation observer token so it lives as long as the controller.
+    private var appActivationObserver: NSObjectProtocol?
+
     // MARK: - Lifecycle
 
     override init!(server: IMKServer!, delegate: Any!, client inputClient: Any!) {
         super.init(server: server, delegate: delegate, client: inputClient)
         setupSuggestionCallbacks()
+        setupAppDiagnostics()
     }
 
     override func activateServer(_ sender: Any!) {
@@ -297,6 +301,59 @@ final class LingoPulseIMEController: IMKInputController {
     private func clearSuggestionState() {
         originalText = ""
         bufferUTF16Length = 0
+    }
+
+    // MARK: - App diagnostics
+
+    /// Subscribe to NSWorkspace.didActivateApplicationNotification and log a one-line
+    /// diagnostic for every app switch. Helps identify which apps accept IME input.
+    ///
+    /// Output format (visible in Console.app or `log stream`):
+    ///   LingoPulseIME [AppDiag]: active app: Slack (com.tinyspeck.slackmacgap) | policy: regular | IME input likely: YES
+    ///   LingoPulseIME [AppDiag]: active app: iTerm2 (com.googlecode.iterm2) | policy: regular | IME input likely: NO (excluded)
+    private func setupAppDiagnostics() {
+        appActivationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                    as? NSRunningApplication else { return }
+            self?.logAppActivation(app)
+        }
+    }
+
+    private func logAppActivation(_ app: NSRunningApplication) {
+        let name = app.localizedName ?? "Unknown"
+        let bundleID = app.bundleIdentifier ?? "?"
+
+        let policyString: String
+        switch app.activationPolicy {
+        case .regular:    policyString = "regular"
+        case .accessory:  policyString = "accessory"
+        case .prohibited: policyString = "prohibited"
+        @unknown default: policyString = "unknown"
+        }
+
+        let excluded = preferences.excludedApps.contains(name)
+
+        let imeNote: String
+        if excluded {
+            imeNote = "NO (excluded)"
+        } else if app.activationPolicy == .regular {
+            imeNote = "YES"
+        } else {
+            imeNote = "NO (policy: \(policyString))"
+        }
+
+        NSLog("LingoPulseIME [AppDiag]: active app: %@ (%@) | policy: %@ | IME input likely: %@",
+              name, bundleID, policyString, imeNote)
+    }
+
+    deinit {
+        if let obs = appActivationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(obs)
+        }
     }
 
     /// Asks the current IMK client for the line-height rect at character index 0

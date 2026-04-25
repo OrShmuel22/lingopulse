@@ -55,6 +55,10 @@ macOS will ask once for notification permission. Grant it to receive cold-start 
 | Esc | Dismiss chip, send feedback |
 | ↓ / ↑ | Cycle through edits |
 
+## IME compatibility testing
+
+Before reporting a bug against a specific app, check `docs/IME-COMPAT.md` for known behavior. To run a manual compatibility pass yourself, follow the step-by-step guide in `docs/IME-DOGFOOD.md`.
+
 ## Troubleshooting
 
 **No chip appears / "AX denied"**
