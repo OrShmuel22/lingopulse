@@ -254,7 +254,16 @@ struct ChipView: View {
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
                 Spacer()
+                confidenceBadge
                 categoryPill(edit.categoryEnum)
+                if edit.riskEnum == .risky {
+                    Text("REVIEW")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(RoundedRectangle(cornerRadius: 3).fill(.red))
+                }
             }
             HStack(spacing: 4) {
                 if let label = countLabel {
@@ -274,9 +283,27 @@ struct ChipView: View {
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(.regularMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(edit.riskEnum == .risky ? Color.red : Color.clear, lineWidth: 1.5)
+                )
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         )
         .padding(4)
+    }
+
+    private var confidenceBadge: some View {
+        Group {
+            switch edit.confidenceEnum {
+            case .high:
+                Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
+            case .medium:
+                Image(systemName: "questionmark.circle").foregroundStyle(.orange)
+            case .low:
+                Image(systemName: "exclamationmark.triangle").foregroundStyle(.red)
+            }
+        }
+        .font(.system(size: 12))
     }
 
     private func categoryPill(_ category: EditCategory) -> some View {

@@ -6,18 +6,22 @@ final class AppCoordinator {
     let daemonClient: DaemonClient
     private let accessibility: AccessibilityServicing
     private let pipeline: SuggestionPipelining
-    private let presenter: ChipPresenting
+    private let chipPresenter: ChipPresenting
+    private let reviewPresenter: ReviewPresenting
+    private let toast = AffirmationToast()
     private let debouncer: Debouncer
     private var coldStartShown: Date?
     private var lastDaemonDownNotice: Date?
     private var currentRefineTask: Task<Void, Never>?
 
     init(daemon: DaemonClient, accessibility: AccessibilityServicing,
-         pipeline: SuggestionPipelining, presenter: ChipPresenting) {
+         pipeline: SuggestionPipelining, chipPresenter: ChipPresenting,
+         reviewPresenter: ReviewPresenting) {
         self.daemonClient = daemon
         self.accessibility = accessibility
         self.pipeline = pipeline
-        self.presenter = presenter
+        self.chipPresenter = chipPresenter
+        self.reviewPresenter = reviewPresenter
         self.debouncer = Debouncer(interval: Constants.Timing.debounceSeconds)
     }
 
@@ -34,7 +38,8 @@ final class AppCoordinator {
     func stopLiveListener() {
         accessibility.stopListening()
         debouncer.cancel()
-        presenter.dismiss()
+        chipPresenter.dismiss()
+        reviewPresenter.dismiss()
         pipeline.cancelInFlight()
         currentRefineTask?.cancel()
     }
@@ -67,11 +72,31 @@ final class AppCoordinator {
         currentRefineTask = Task { @MainActor in
             do {
                 let start = Date()
-                guard let result = try await pipeline.requestSuggestions(for: selection) else { return }
+                let result = try await pipeline.requestSuggestions(for: selection)
                 if Date().timeIntervalSince(start) > Constants.Timing.coldStartThresholdSeconds { showColdStartNotice() }
                 if Task.isCancelled { return }
-                if manual { applyDirect(refined: result.refined, app: selection.appKind) }
-                else { showChip(result: result, selection: selection) }
+
+                // Manual mode (⌘⌥G): always apply directly, no UI
+                if manual {
+                    if let result = result {
+                        applyDirect(refined: result.refined, app: selection.appKind)
+                    }
+                    return
+                }
+
+                // Live mode routing
+                guard let result = result else {
+                    // 0 edits — text is already clean
+                    toast.show()
+                    return
+                }
+
+                if result.edits.count == 1 {
+                    showChip(result: result, selection: selection)
+                } else {
+                    showReview(result: result, selection: selection)
+                }
+
             } catch is CancellationError { return
             } catch DaemonError.http(409) { Log.info("busy — try again in a moment")
             } catch { Log.error("refine error: \(error)"); showDaemonDownIfFresh() }
@@ -79,19 +104,52 @@ final class AppCoordinator {
     }
 
     private func showChip(result: RefineResult, selection: Selection) {
-        presenter.present(result: result, in: selection.appKind, near: selection.element) { [weak self] action in
+        chipPresenter.present(result: result, in: selection.appKind, near: selection.element) { [weak self] action in
             self?.handleChipAction(action, selection: selection)
         }
+    }
+
+    private func showReview(result: RefineResult, selection: Selection) {
+        reviewPresenter.present(
+            result: result,
+            in: selection.appKind,
+            onAccept: { [weak self] indices in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    do {
+                        let text = try await self.pipeline.applyAccepted(
+                            original: result.original,
+                            refined: result.refined,
+                            indices: indices
+                        )
+                        self.applyDirect(refined: text, app: selection.appKind)
+                        self.reviewPresenter.dismiss()
+                    } catch { Log.error("apply_edits error \(error)") }
+                }
+            },
+            onDismiss: { [weak self] count in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    await self.pipeline.sendDismissalFeedback(
+                        input: result.original,
+                        rejected: result.refined,
+                        app: selection.appKind,
+                        dismissedCount: count
+                    )
+                    self.reviewPresenter.dismiss()
+                }
+            }
+        )
     }
 
     private func handleChipAction(_ action: ChipAction, selection: Selection) {
         switch action {
         case .acceptCurrent(_, let isLast):
-            let state = presenter.chipState()
+            let state = chipPresenter.chipState()
             Task { @MainActor in
                 do {
                     let text = try await pipeline.applyAccepted(original: state.original, refined: state.refined, indices: Array(state.acceptedIndices))
-                    if isLast { applyDirect(refined: text, app: selection.appKind); presenter.dismiss() }
+                    if isLast { applyDirect(refined: text, app: selection.appKind); chipPresenter.dismiss() }
                 } catch { Log.error("apply_edits error \(error)") }
             }
         case .dismissed(let count):

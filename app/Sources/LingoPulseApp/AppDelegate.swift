@@ -26,12 +26,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let daemon = DaemonClient(baseURL: url)
         let accessibility = AccessibilityService()
         let pipeline = SuggestionPipeline(daemon: daemon)
-        let presenter = ChipPresenter()
+        let chipPresenter = ChipPresenter()
+        let reviewPresenter = ReviewPresenter()
         let coordinator = AppCoordinator(
             daemon: daemon,
             accessibility: accessibility,
             pipeline: pipeline,
-            presenter: presenter
+            chipPresenter: chipPresenter,
+            reviewPresenter: reviewPresenter
         )
         self.coordinator = coordinator
 

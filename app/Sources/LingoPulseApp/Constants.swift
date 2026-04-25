@@ -11,6 +11,7 @@ enum Constants {
         static let coldStartThresholdSeconds: TimeInterval = 2.0
         static let notificationCooldownSeconds: TimeInterval = 60.0
         static let axTrustPollSeconds: TimeInterval = 5.0
+        static let affirmationDismissSeconds: TimeInterval = 1.5
     }
     enum Layout {
         static let chipMinWidth: CGFloat = 280
@@ -20,6 +21,8 @@ enum Constants {
         static let chipScreenMargin: CGFloat = 16
         static let chipElementOffset: CGFloat = 6
         static let chipSlideOffset: CGFloat = 8
+        static let reviewPanelWidth: CGFloat = 540
+        static let reviewPanelHeight: CGFloat = 400
     }
     enum Daemon {
         static let defaultURL = URL(string: "http://127.0.0.1:17823")!

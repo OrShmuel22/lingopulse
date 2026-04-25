@@ -98,3 +98,14 @@ enum FeedbackReason: String, CaseIterable {
     case addedContent = "added_content"
     case other = "other"
 }
+
+enum Confidence: String, CaseIterable {
+    case high
+    case medium
+    case low
+}
+
+enum Risk: String, CaseIterable {
+    case safe
+    case risky
+}

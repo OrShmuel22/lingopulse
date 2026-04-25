@@ -29,10 +29,30 @@ struct Edit: Decodable {
     let to_span: [Int]
     let category: String
     let reason: String
-}
+    let confidence: String  // "high" | "medium" | "low"
+    let risk: String        // "safe" | "risky"
 
-extension Edit {
     var categoryEnum: EditCategory { EditCategory(rawValue: category) ?? .other }
+    var confidenceEnum: Confidence { Confidence(rawValue: confidence) ?? .low }
+    var riskEnum: Risk { Risk(rawValue: risk) ?? .safe }
+
+    // Backward-compatible coding keys so older payloads without these fields default gracefully
+    private enum CodingKeys: String, CodingKey {
+        case type, from_text, to_text, from_span, to_span, category, reason, confidence, risk
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        type = try c.decode(String.self, forKey: .type)
+        from_text = try c.decode(String.self, forKey: .from_text)
+        to_text = try c.decode(String.self, forKey: .to_text)
+        from_span = try c.decode([Int].self, forKey: .from_span)
+        to_span = try c.decode([Int].self, forKey: .to_span)
+        category = try c.decode(String.self, forKey: .category)
+        reason = try c.decode(String.self, forKey: .reason)
+        confidence = try c.decodeIfPresent(String.self, forKey: .confidence) ?? "low"
+        risk = try c.decodeIfPresent(String.self, forKey: .risk) ?? "safe"
+    }
 }
 
 struct StatusResponse: Decodable {
