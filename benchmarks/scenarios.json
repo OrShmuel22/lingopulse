@@ -516,6 +516,43 @@
     "must_preserve": []
   },
   {
+    "id": "refine-clean-passthrough-01",
+    "endpoint": "refine",
+    "description": "Already-correct input must pass through unchanged (no truncation, no rephrase)",
+    "request": {
+      "selection": "Ok, I've tested the app; there are small fixes.",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "tested",
+      "preserves_tokens": ["app", "fixes"],
+      "min_output_words": 8
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-clean-passthrough-02",
+    "endpoint": "refine",
+    "description": "Multi-sentence clean Slack message must pass through unchanged",
+    "request": {
+      "selection": "let me check the logs. ill ping you back in 5",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "logs",
+      "min_output_words": 8
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
     "id": "undo-01",
     "endpoint": "undo",
     "description": "Undo: refine input, then undo, expect original back byte-exact",

@@ -8,19 +8,30 @@ TONE_DESCRIPTIONS = {
     "Grammar-only": "fix grammar and spelling only; do not change tone or wording unless grammatically required",
 }
 
-FIXER_PROMPT_TEMPLATE = """You are a careful English editor. The user typed this message in {app}.
-Typical register for this app is: {tone_name} — {tone_description}.
+FIXER_PROMPT_TEMPLATE = """You fix English errors. You preserve everything else.
 
-BUT: if the original message shows clear signals of a different register — full sentences and formal address (→ preserve formal), legal/compliance language (→ preserve serious), technical acronyms or code identifiers (→ preserve technical) — adjust to match the user's intent rather than the app default.
+Rules:
+1. Same number of sentences in output as input.
+2. If input is correct, output = input. Do not rephrase clean text.
+3. Keep code, URLs, names, technical terms, and Hebrew text verbatim.
+4. Match the original tone — {tone_description}.
 
-Do not change the meaning. Do not add, remove, or rephrase content beyond what's needed for clarity and correctness. Preserve all technical terms, code identifiers, URLs, and proper nouns verbatim.
+App: {app}
+Tone: {tone_name}
 
-Message:
----
-{message}
----
+Examples:
 
-Return only the refined message. No preamble, no explanation."""
+Input:  who is responsible on staging?
+Output: who is responsible for staging?
+
+Input:  i have informations and feedbacks
+Output: i have information and feedback
+
+Input:  Ok, I've tested the app; there are small fixes.
+Output: Ok, I've tested the app; there are small fixes.
+
+Input:  {message}
+Output:"""
 
 _CODE_KEYWORDS = re.compile(
     r"\b(function|const|let|var|class|import|def|return|if|else|for|while|async|await|public|private|null|None|true|false)\b"

@@ -34,6 +34,12 @@ def refine(
         prompt=prompt,
         keep_alive=config["keepalive"]["ollama_keep_alive"],
         timeout=config["fixer"]["timeout_seconds"],
+        options={
+            "temperature": 0.1,
+            "top_p": 0.9,
+            "repeat_penalty": 1.0,
+            "stop": ["\nInput:", "\n\n", "\nOutput:"],
+        },
     )
 
     refined = protection.restore(response.strip(), protected.tokens)

@@ -42,6 +42,7 @@ class OllamaClient:
         format: str | None = None,
         timeout: float = 15.0,
         think: bool = False,
+        options: dict | None = None,
         on_started: Callable[[], None] | None = None,
         on_complete: Callable[[str], None] | None = None,
     ) -> str:
@@ -70,6 +71,8 @@ class OllamaClient:
                 }
                 if format is not None:
                     payload["format"] = format
+                if options is not None:
+                    payload["options"] = options
 
             data = json.dumps(payload).encode("utf-8")
             req = urllib.request.Request(
