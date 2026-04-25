@@ -10,50 +10,111 @@ final class ReviewPanel {
     private var hostingController: NSHostingController<ReviewPanelView>?
     private var stateModel: ReviewPanelState?
 
-    func show(state: ReviewPanelState) {
+    /// `near` is used only in compact mode (single edit). Pass nil for multi-edit case → centered.
+    func show(state: ReviewPanelState, near element: AXUIElement?) {
         hide()
         self.stateModel = state
 
+        let isCompact = state.result.edits.count == 1
+
+        let initialSize: NSSize = isCompact
+            ? NSSize(width: 360, height: 140)
+            : NSSize(width: Constants.Layout.reviewPanelWidth, height: Constants.Layout.reviewPanelHeight)
+
         let panel = NSPanel(
-            contentRect: NSRect(
-                x: 0, y: 0,
-                width: Constants.Layout.reviewPanelWidth,
-                height: Constants.Layout.reviewPanelHeight
-            ),
-            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
+            contentRect: NSRect(origin: .zero, size: initialSize),
+            styleMask: isCompact
+                ? [.borderless, .nonactivatingPanel]
+                : [.titled, .closable, .resizable, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-        panel.title = "LingoPulse — \(state.result.edits.count) Suggestions"
+        if !isCompact { panel.title = "LingoPulse — \(state.result.edits.count) Suggestions" }
         panel.isFloatingPanel = true
         panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         panel.hasShadow = true
+        if isCompact {
+            panel.backgroundColor = .clear
+            panel.isOpaque = false
+        }
 
-        let view = ReviewPanelView(state: state)
+        let view = ReviewPanelView(state: state, isCompact: isCompact)
         let hc = NSHostingController(rootView: view)
         hc.view.frame = panel.contentView?.bounds ?? .zero
         hc.view.autoresizingMask = [.width, .height]
         panel.contentView?.addSubview(hc.view)
 
-        if let screen = NSScreen.main {
-            let origin = CGPoint(
-                x: screen.frame.midX - Constants.Layout.reviewPanelWidth / 2,
-                y: screen.frame.midY - Constants.Layout.reviewPanelHeight / 2
+        if isCompact {
+            let fitting = hc.sizeThatFits(in: NSSize(width: 400, height: 200))
+            let finalSize = NSSize(
+                width: max(fitting.width, 320),
+                height: max(fitting.height, 80)
             )
-            panel.setFrameOrigin(origin)
+            panel.setContentSize(finalSize)
         }
+
+        let origin: CGPoint
+        if isCompact, let element = element, let screen = NSScreen.main {
+            var posValue: CFTypeRef?
+            var sizeValue: CFTypeRef?
+            AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posValue)
+            AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue)
+            if let point = AXClient.axPoint(from: posValue),
+               let elemSize = AXClient.axSize(from: sizeValue) {
+                let elementBounds = CGRect(origin: point, size: elemSize)
+                origin = ChipPositioning.computeOrigin(
+                    elementBounds: elementBounds,
+                    panelSize: panel.frame.size,
+                    screenBounds: screen.frame
+                )
+            } else {
+                origin = fallbackCompactOrigin(panelSize: panel.frame.size)
+            }
+        } else if let screen = NSScreen.main {
+            origin = CGPoint(
+                x: screen.frame.midX - panel.frame.width / 2,
+                y: screen.frame.midY - panel.frame.height / 2
+            )
+        } else {
+            origin = .zero
+        }
+
+        panel.alphaValue = 0
+        panel.setFrameOrigin(NSPoint(x: origin.x, y: origin.y - Constants.Layout.chipSlideOffset))
         panel.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = Constants.Timing.chipShowAnimationSeconds
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1.0
+            panel.animator().setFrameOrigin(origin)
+        }, completionHandler: nil)
 
         self.window = panel
         self.hostingController = hc
     }
 
-    func hide() {
-        window?.orderOut(nil)
-        window = nil
-        hostingController = nil
-        stateModel = nil
+    func hide(completion: (() -> Void)? = nil) {
+        guard let window = window else { completion?(); return }
+        self.window = nil
+        self.hostingController = nil
+        self.stateModel = nil
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = Constants.Timing.chipHideAnimationSeconds
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window.animator().alphaValue = 0
+        }, completionHandler: {
+            window.orderOut(nil)
+            completion?()
+        })
+    }
+
+    private func fallbackCompactOrigin(panelSize: CGSize) -> CGPoint {
+        guard let screen = NSScreen.main else { return CGPoint(x: 100, y: 100) }
+        return CGPoint(
+            x: screen.frame.maxX - panelSize.width - Constants.Layout.chipScreenMargin,
+            y: screen.frame.maxY - panelSize.height - 40
+        )
     }
 }
 
@@ -104,8 +165,35 @@ final class ReviewPanelState: ObservableObject {
 
 struct ReviewPanelView: View {
     @ObservedObject var state: ReviewPanelState
+    let isCompact: Bool
 
     var body: some View {
+        if isCompact {
+            compactView
+        } else {
+            fullView
+        }
+    }
+
+    private var compactView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            editRow(idx: 0, edit: state.result.edits[0])
+            HStack(spacing: 4) {
+                Text("Tab toggle · ⏎ accept · Esc dismiss")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.regularMaterial)
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+        )
+        .padding(4)
+    }
+
+    private var fullView: some View {
         VStack(alignment: .leading, spacing: 0) {
             headerBar
             Divider()
@@ -158,7 +246,6 @@ struct ReviewPanelView: View {
         var attributed = AttributedString()
 
         for (wordIdx, word) in originalWords.enumerated() {
-            // Find the first edit whose from_span covers this word index
             let matchingEdit = state.result.edits.enumerated().first { (editIdx, edit) in
                 guard edit.from_span.count >= 2 else { return false }
                 return wordIdx >= edit.from_span[0] && wordIdx < edit.from_span[1]

@@ -1,10 +1,12 @@
 import AppKit
+import ApplicationServices
 
 @MainActor
 protocol ReviewPresenting {
     func present(
         result: RefineResult,
         in app: AppKind,
+        near element: AXUIElement?,
         onAccept: @escaping ([Int]) -> Void,
         onDismiss: @escaping (Int) -> Void
     )
@@ -20,6 +22,7 @@ final class ReviewPresenter: ReviewPresenting {
     func present(
         result: RefineResult,
         in app: AppKind,
+        near element: AXUIElement?,
         onAccept: @escaping ([Int]) -> Void,
         onDismiss: @escaping (Int) -> Void
     ) {
@@ -39,7 +42,7 @@ final class ReviewPresenter: ReviewPresenting {
             self?.dismiss()
         }
 
-        panel.show(state: state)
+        panel.show(state: state, near: element)
 
         keyMonitor.onArrowDown = { [weak state] in state?.cursorNext() }
         keyMonitor.onArrowUp = { [weak state] in state?.cursorPrev() }
@@ -52,7 +55,6 @@ final class ReviewPresenter: ReviewPresenting {
             onDismiss(result.edits.count - state.acceptedIndices.count)
             self?.dismiss()
         }
-
         keyMonitor.start()
     }
 
