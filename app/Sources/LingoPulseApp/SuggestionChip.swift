@@ -57,7 +57,15 @@ final class SuggestionChip {
         self.window = panel
         self.hostingController = hc
 
-        panel.orderFront(nil)
+        panel.alphaValue = 0
+        panel.setFrameOrigin(NSPoint(x: origin.x, y: origin.y - 8))
+        panel.makeKeyAndOrderFront(nil)
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.15
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1.0
+            panel.animator().setFrameOrigin(origin)
+        }, completionHandler: nil)
 
         let dismissInterval = Preferences.shared.autoDismissSeconds
         dismissTimer = Timer.scheduledTimer(withTimeInterval: dismissInterval, repeats: false) { [weak self] _ in
@@ -89,9 +97,16 @@ final class SuggestionChip {
     func hide() {
         dismissTimer?.invalidate()
         dismissTimer = nil
-        window?.orderOut(nil)
-        window = nil
-        hostingController = nil
+        guard let window = window else { return }
+        self.window = nil
+        self.hostingController = nil
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.10
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window.animator().alphaValue = 0
+        }, completionHandler: {
+            window.orderOut(nil)
+        })
     }
 
     private func rerender() {

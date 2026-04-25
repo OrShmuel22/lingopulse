@@ -28,7 +28,7 @@ final class HotkeyManager {
         self.keyCode = keyCode
         self.modifiers = modifiers
         register()
-        NSLog("LingoPulse: hotkey rebound to keyCode=\(keyCode) modifiers=\(modifiers)")
+        Log.info("hotkey rebound to keyCode=\(keyCode) modifiers=\(modifiers)")
     }
 
     private func register() {

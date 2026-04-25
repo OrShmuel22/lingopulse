@@ -57,7 +57,7 @@ final class AXLiveObserver {
 
         let createResult = AXObserverCreate(pid, axCallback, &observer)
         guard createResult == .success, let observer = observer else {
-            NSLog("LingoPulse AX: failed to create observer for \(appName) (\(createResult.rawValue))")
+            Log.error("AX: failed to create observer for \(appName) (\(createResult.rawValue))")
             return
         }
 
@@ -68,7 +68,7 @@ final class AXLiveObserver {
         AXObserverAddNotification(observer, appElement, kAXFocusedUIElementChangedNotification as CFString, selfPtr)
 
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
-        NSLog("LingoPulse AX: attached to \(appName)")
+        Log.debug("AX: attached to \(appName)")
     }
 
     private func detachCurrent() {
@@ -107,6 +107,7 @@ final class AXLiveObserver {
             var valueRef: CFTypeRef?
             let err = AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueRef)
             guard err == .success, let text = valueRef as? String, !text.isEmpty else { return }
+            Log.debug("AX: value changed in \(currentAppName) (\(text.count) chars)")
             onTextChange?(text, currentAppName, element)
         }
     }

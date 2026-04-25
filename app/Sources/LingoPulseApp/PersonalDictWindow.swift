@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 final class PersonalDictWindowController: NSWindowController {
     convenience init(daemon: DaemonClient) {
@@ -13,7 +14,7 @@ final class PersonalDictWindowController: NSWindowController {
     }
 }
 
-struct PersonalDictEntry: Decodable, Identifiable, Equatable {
+struct PersonalDictEntry: Codable, Identifiable, Equatable {
     var id: String { "\(token)|\(scope)" }
     let token: String
     let scope: String
@@ -28,7 +29,7 @@ final class PersonalDictModel: ObservableObject {
     @Published var loading: Bool = false
     @Published var errorMessage: String?
 
-    private let daemon: DaemonClient
+    let daemon: DaemonClient
     init(daemon: DaemonClient) { self.daemon = daemon }
 
     func reload() async {
@@ -93,6 +94,12 @@ struct PersonalDictView: View {
                 .disabled(model.newToken.trimmingCharacters(in: .whitespaces).isEmpty)
             }
 
+            HStack {
+                Button("Export…") { Task { await exportDict() } }
+                Button("Import…") { Task { await importDict() } }
+                Spacer()
+            }
+
             if let err = model.errorMessage {
                 Text(err).font(.caption).foregroundStyle(.red)
             }
@@ -113,5 +120,34 @@ struct PersonalDictView: View {
         }
         .padding(16)
         .task { await model.reload() }
+    }
+
+    private func exportDict() async {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "lingopulse-dict.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try JSONEncoder().encode(model.entries)
+            try data.write(to: url)
+        } catch {
+            model.errorMessage = "Export failed: \(error)"
+        }
+    }
+
+    private func importDict() async {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try Data(contentsOf: url)
+            let entries = try JSONDecoder().decode([PersonalDictEntry].self, from: data)
+            for entry in entries {
+                _ = try await model.daemon.addPersonalDictEntry(token: entry.token, scope: entry.scope)
+            }
+            await model.reload()
+        } catch {
+            model.errorMessage = "Import failed: \(error)"
+        }
     }
 }

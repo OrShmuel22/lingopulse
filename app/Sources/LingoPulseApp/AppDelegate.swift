@@ -8,8 +8,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var prefsObservers: Set<AnyCancellable> = []
 
     @MainActor func applicationDidFinishLaunching(_ notification: Notification) {
+        Notifications.requestAuthorizationIfNeeded()
+
         if !AXClient.ensureTrusted() {
-            NSLog("LingoPulse: Accessibility not granted yet — grant in System Settings → Privacy → Accessibility, then restart.")
+            Log.error("Accessibility not granted yet — grant in System Settings → Privacy → Accessibility, then restart.")
         }
 
         let prefs = Preferences.shared
@@ -29,11 +31,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         observeRebinds(coordinator: coordinator)
-        NSLog("LingoPulse: app launched, menu bar ready, hotkeys registered.")
+        Log.info("app launched, menu bar ready, hotkeys registered.")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        NSLog("LingoPulse: shutting down.")
+        Log.info("shutting down.")
     }
 
     @MainActor private func observeRebinds(coordinator: AppCoordinator) {

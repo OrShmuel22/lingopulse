@@ -9,6 +9,8 @@ final class AppCoordinator {
     private let chip = SuggestionChip()
     private let keyMonitor = KeyMonitor()
     private var inFlight = false
+    private var coldStartShown = false
+    private var lastDaemonDownNotice: Date?
 
     init(daemon: DaemonClient) {
         self.daemon = daemon
@@ -33,7 +35,7 @@ final class AppCoordinator {
 
     func updateDaemonURL(_ url: URL) {
         self.daemon = DaemonClient(baseURL: url)
-        NSLog("LingoPulse: daemon URL updated to \(url)")
+        Log.info("daemon URL updated to \(url)")
     }
 
     private func handleDebouncedText(text: String, app: String, element: AXUIElement) {
@@ -43,15 +45,36 @@ final class AppCoordinator {
         Task {
             defer { Task { @MainActor in self.inFlight = false } }
             do {
+                let start = Date()
                 let resp = try await daemon.refine(selection: text, app: app, toneOverride: nil)
+                let elapsed = Date().timeIntervalSince(start)
+                if elapsed > 2.0 {
+                    await MainActor.run { self.showColdStartNotice() }
+                }
                 guard !resp.edits.isEmpty else { return }
                 await MainActor.run {
                     self.showChip(edits: resp.edits, original: text, refined: resp.refined, app: app, element: element)
                 }
             } catch {
-                NSLog("LingoPulse live: refine error \(error)")
+                Log.error("live: refine error \(error)")
+                await MainActor.run { self.showDaemonDownIfFresh() }
             }
         }
+    }
+
+    @MainActor private func showColdStartNotice() {
+        guard !coldStartShown else { return }
+        coldStartShown = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
+            self?.coldStartShown = false
+        }
+        Notifications.show(title: "LingoPulse", body: "Warming up gemma3 — next refine will be fast.")
+    }
+
+    @MainActor private func showDaemonDownIfFresh() {
+        if let last = lastDaemonDownNotice, Date().timeIntervalSince(last) < 60 { return }
+        lastDaemonDownNotice = Date()
+        Notifications.show(title: "LingoPulse", body: "Daemon unreachable. Check launchctl list | grep lingopulse.")
     }
 
     @MainActor private func showChip(edits: [Edit], original: String, refined: String, app: String, element: AXUIElement) {
@@ -59,8 +82,8 @@ final class AppCoordinator {
         chip.currentApp = app
         chip.onNeverFix = { [weak self] token, scope in
             Task {
-                try? await self?.daemon.addPersonalDictEntry(token: token, scope: scope)
-                NSLog("LingoPulse: never-fix added \(token) scope=\(scope)")
+                _ = try? await self?.daemon.addPersonalDictEntry(token: token, scope: scope)
+                Log.info("never-fix added \(token) scope=\(scope)")
             }
         }
         chip.show(near: element)
@@ -98,7 +121,7 @@ final class AppCoordinator {
                 await MainActor.run { self.applyFinalAndCleanup(text: response.result, app: app) }
             }
         } catch {
-            NSLog("LingoPulse: apply_edits error \(error)")
+            Log.error("apply_edits error \(error)")
         }
     }
 
@@ -115,7 +138,7 @@ final class AppCoordinator {
 
     private func dismissAndFeedback(input: String, rejected: String, app: String, dismissedCount: Int) {
         Task {
-            try? await daemon.feedback(
+            _ = try? await daemon.feedback(
                 input: input,
                 rejected: rejected,
                 reason: "other",
@@ -130,34 +153,43 @@ final class AppCoordinator {
 
     func refineFocusedSelection() {
         guard let (text, app) = AXClient.readSelection() else {
-            NSLog("LingoPulse: no selection or AX denied.")
+            if !AXIsProcessTrusted() {
+                Notifications.show(title: "LingoPulse", body: "Accessibility permission revoked. Re-enable in System Settings → Privacy → Accessibility.")
+            }
+            Log.error("no selection or AX denied.")
             return
         }
-        NSLog("LingoPulse: refining \(text.count) chars from \(app)")
+        Log.info("refining \(text.count) chars from \(app)")
 
         Task {
             do {
+                let start = Date()
                 let resp = try await daemon.refine(selection: text, app: app, toneOverride: nil)
-                NSLog("LingoPulse: \(resp.edits.count) edits returned")
-                NSLog("LingoPulse:   ORIGINAL: \(resp.original)")
-                NSLog("LingoPulse:   REFINED:  \(resp.refined)")
+                let elapsed = Date().timeIntervalSince(start)
+                if elapsed > 2.0 {
+                    await MainActor.run { self.showColdStartNotice() }
+                }
+                Log.info("\(resp.edits.count) edits returned")
+                Log.debug("  ORIGINAL: \(resp.original)")
+                Log.debug("  REFINED:  \(resp.refined)")
                 for e in resp.edits {
-                    NSLog("  - [\(e.category)] \(e.from_text) → \(e.to_text)")
+                    Log.debug("  - [\(e.category)] \(e.from_text) → \(e.to_text)")
                 }
                 let isTerminal = ["iTerm2", "Terminal", "Alacritty", "WezTerm", "Hyper", "Warp"].contains(app)
                 if isTerminal {
-                    NSLog("LingoPulse: \(app) is a terminal — copying to clipboard (AX write unreliable)")
+                    Log.info("\(app) is a terminal — copying to clipboard (AX write unreliable)")
                     pasteViaClipboard(resp.refined)
                 } else if AXClient.writeFocusedValue(resp.refined) {
-                    NSLog("LingoPulse: pasted via AX write")
+                    Log.info("pasted via AX write")
                 } else {
-                    NSLog("LingoPulse: AX write failed, copying to clipboard")
+                    Log.info("AX write failed, copying to clipboard")
                     pasteViaClipboard(resp.refined)
                 }
             } catch DaemonError.http(409) {
-                NSLog("LingoPulse: busy (another refine in flight) — try again in a moment")
+                Log.info("busy (another refine in flight) — try again in a moment")
             } catch {
-                NSLog("LingoPulse: refine error: \(error)")
+                Log.error("refine error: \(error)")
+                await MainActor.run { self.showDaemonDownIfFresh() }
             }
         }
     }
@@ -166,12 +198,12 @@ final class AppCoordinator {
         Task {
             do {
                 let s = try await daemon.status()
-                NSLog("LingoPulse status: model=\(s.model) loaded=\(s.model_loaded)")
+                Log.info("status: model=\(s.model) loaded=\(s.model_loaded)")
                 await MainActor.run {
                     showToast(title: "Daemon", body: "model=\(s.model) loaded=\(s.model_loaded)")
                 }
             } catch {
-                NSLog("LingoPulse status error: \(error)")
+                Log.error("status error: \(error)")
             }
         }
     }
