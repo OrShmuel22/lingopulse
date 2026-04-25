@@ -4,6 +4,7 @@ final class MenuBarController: NSObject {
     private let statusItem: NSStatusItem
     private let coordinator: AppCoordinator
     private var personalDictWindow: PersonalDictWindowController?
+    private var settingsWindow: SettingsWindowController?
 
     init(coordinator: AppCoordinator) {
         self.coordinator = coordinator
@@ -24,6 +25,7 @@ final class MenuBarController: NSObject {
         menu.addItem(NSMenuItem(title: "Daemon Status…", action: #selector(checkStatus), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Personal Dictionary…", action: #selector(openPersonalDict), keyEquivalent: "d"))
+        menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit LingoPulse", action: #selector(quit), keyEquivalent: "q"))
 
@@ -46,6 +48,14 @@ final class MenuBarController: NSObject {
             personalDictWindow = PersonalDictWindowController(daemon: coordinator.daemonClient)
         }
         personalDictWindow?.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func openSettings() {
+        if settingsWindow == nil {
+            settingsWindow = SettingsWindowController(daemon: coordinator.daemonClient)
+        }
+        settingsWindow?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 

@@ -24,7 +24,7 @@ final class SuggestionChip {
         currentIndex = 0
     }
 
-    func show(near element: AXUIElement?) {
+    @MainActor func show(near element: AXUIElement?) {
         guard !allEdits.isEmpty else { return }
 
         hide()
@@ -59,7 +59,8 @@ final class SuggestionChip {
 
         panel.orderFront(nil)
 
-        dismissTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: false) { [weak self] _ in
+        let dismissInterval = Preferences.shared.autoDismissSeconds
+        dismissTimer = Timer.scheduledTimer(withTimeInterval: dismissInterval, repeats: false) { [weak self] _ in
             self?.hide()
         }
     }

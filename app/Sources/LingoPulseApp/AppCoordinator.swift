@@ -2,7 +2,7 @@ import AppKit
 import ApplicationServices
 
 final class AppCoordinator {
-    let daemon: DaemonClient
+    private(set) var daemon: DaemonClient
     var daemonClient: DaemonClient { daemon }
     private let liveObserver = AXLiveObserver()
     private let debouncer = Debouncer(interval: 1.5)
@@ -24,6 +24,18 @@ final class AppCoordinator {
         liveObserver.start()
     }
 
+    func stopLiveListener() {
+        liveObserver.stop()
+        debouncer.cancel()
+        chip.hide()
+        keyMonitor.stop()
+    }
+
+    func updateDaemonURL(_ url: URL) {
+        self.daemon = DaemonClient(baseURL: url)
+        NSLog("LingoPulse: daemon URL updated to \(url)")
+    }
+
     private func handleDebouncedText(text: String, app: String, element: AXUIElement) {
         guard !inFlight else { return }
         guard text.split(separator: " ").count >= 3 else { return }
@@ -42,7 +54,7 @@ final class AppCoordinator {
         }
     }
 
-    private func showChip(edits: [Edit], original: String, refined: String, app: String, element: AXUIElement) {
+    @MainActor private func showChip(edits: [Edit], original: String, refined: String, app: String, element: AXUIElement) {
         chip.configure(edits: edits, original: original, refined: refined)
         chip.currentApp = app
         chip.onNeverFix = { [weak self] token, scope in

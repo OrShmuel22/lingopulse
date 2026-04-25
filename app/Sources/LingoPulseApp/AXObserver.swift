@@ -43,6 +43,9 @@ final class AXLiveObserver {
         let appName = app.localizedName ?? app.bundleIdentifier ?? "Unknown"
         guard !terminalApps.contains(appName) else { return }
         guard AXIsProcessTrusted() else { return }
+        // Called on main queue (notification observer uses queue: .main)
+        let isEnabled = MainActor.assumeIsolated { Preferences.shared.enabled }
+        guard isEnabled else { return }
 
         detachCurrent()
 
@@ -83,6 +86,7 @@ final class AXLiveObserver {
         observedPID = 0
     }
 
+    // Called from axCallback which fires on CFRunLoopGetMain — safe to use MainActor.assumeIsolated.
     fileprivate func handleAXEvent(notification: String, element: AXUIElement) {
         guard AXIsProcessTrusted() else { return }
         guard let observer = axObserver else { return }
@@ -95,6 +99,11 @@ final class AXLiveObserver {
             let selfPtr = Unmanaged.passUnretained(self).toOpaque()
             AXObserverAddNotification(observer, element, kAXValueChangedNotification as CFString, selfPtr)
         } else if notification == kAXValueChangedNotification {
+            let (enabled, excluded) = MainActor.assumeIsolated {
+                (Preferences.shared.enabled, Preferences.shared.excludedApps)
+            }
+            guard enabled else { return }
+            guard !excluded.contains(currentAppName) else { return }
             var valueRef: CFTypeRef?
             let err = AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueRef)
             guard err == .success, let text = valueRef as? String, !text.isEmpty else { return }

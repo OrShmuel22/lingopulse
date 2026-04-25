@@ -6,9 +6,13 @@ final class HotkeyManager {
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
     private static var instance: HotkeyManager?
+    private var keyCode: UInt32
+    private var modifiers: UInt32
 
-    init(coordinator: AppCoordinator) {
+    init(coordinator: AppCoordinator, keyCode: UInt32, modifiers: UInt32) {
         self.coordinator = coordinator
+        self.keyCode = keyCode
+        self.modifiers = modifiers
         HotkeyManager.instance = self
         register()
     }
@@ -18,12 +22,17 @@ final class HotkeyManager {
         if let k = hotKeyRef { UnregisterEventHotKey(k) }
     }
 
-    private func register() {
-        // ⌘⌥G (cmd+option+g) — avoids collision with Raycast's ⌘⌥E
-        let modifiers: UInt32 = UInt32(cmdKey | optionKey)
-        let keyCode: UInt32 = UInt32(kVK_ANSI_G)
-        let hotKeyID = EventHotKeyID(signature: OSType(0x4C50_5246), id: 1) // 'LPRF'
+    func rebind(keyCode: UInt32, modifiers: UInt32) {
+        if let h = handlerRef { RemoveEventHandler(h); handlerRef = nil }
+        if let k = hotKeyRef { UnregisterEventHotKey(k); hotKeyRef = nil }
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+        register()
+        NSLog("LingoPulse: hotkey rebound to keyCode=\(keyCode) modifiers=\(modifiers)")
+    }
 
+    private func register() {
+        let hotKeyID = EventHotKeyID(signature: OSType(0x4C50_5246), id: 1) // 'LPRF'
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let cb: EventHandlerProcPtr = { _, eventRef, _ in
             guard let event = eventRef else { return noErr }
