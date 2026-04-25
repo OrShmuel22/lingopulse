@@ -6,11 +6,24 @@ final class SuggestionChip {
     private var window: NSPanel?
     private var hostingController: NSHostingController<ChipView>?
     private var dismissTimer: Timer?
-    var onAccept: ((Int) -> Void)?
-    var onDismiss: (() -> Void)?
 
-    func show(edits: [Edit], near element: AXUIElement?) {
-        guard let firstEdit = edits.first else { return }
+    var originalText: String = ""
+    var refinedText: String = ""
+    var acceptedIndices: Set<Int> = []
+    private(set) var currentIndex: Int = 0
+    private(set) var allEdits: [Edit] = []
+    var dismissedCount: Int { allEdits.count - acceptedIndices.count }
+
+    func configure(edits: [Edit], original: String, refined: String) {
+        allEdits = edits
+        originalText = original
+        refinedText = refined
+        acceptedIndices = []
+        currentIndex = 0
+    }
+
+    func show(near element: AXUIElement?) {
+        guard !allEdits.isEmpty else { return }
 
         hide()
 
@@ -30,32 +43,44 @@ final class SuggestionChip {
         panel.isMovableByWindowBackground = false
         panel.isOpaque = false
 
-        let chipView = ChipView(
-            edit: firstEdit,
-            onAccept: { [weak self] in self?.onAccept?(0) },
-            onDismiss: { [weak self] in self?.onDismiss?() }
-        )
-
+        let chipView = makeChipView(origin: origin, panel: panel)
         let hc = NSHostingController(rootView: chipView)
         hc.view.frame = panel.contentView!.bounds
         hc.view.autoresizingMask = [.width, .height]
         hc.view.layer?.backgroundColor = .clear
         panel.contentView?.addSubview(hc.view)
 
-        let fittingSize = hc.sizeThatFits(in: CGSize(width: 400, height: 200))
-        let finalWidth = max(fittingSize.width, 240)
-        let finalHeight = max(fittingSize.height, 64)
-        panel.setContentSize(CGSize(width: finalWidth, height: finalHeight))
-        panel.setFrameOrigin(origin)
+        sizePanel(panel, hc: hc)
 
         self.window = panel
         self.hostingController = hc
 
         panel.orderFront(nil)
 
-        dismissTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
-            self?.onDismiss?()
+        dismissTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: false) { [weak self] _ in
+            self?.hide()
         }
+    }
+
+    func acceptCurrent() -> Bool {
+        acceptedIndices.insert(currentIndex)
+        let unaccepted = (0..<allEdits.count).filter { !acceptedIndices.contains($0) }
+        if unaccepted.isEmpty {
+            return true
+        }
+        currentIndex = unaccepted[0]
+        rerender()
+        return false
+    }
+
+    func cycleNext() {
+        currentIndex = (currentIndex + 1) % allEdits.count
+        rerender()
+    }
+
+    func cyclePrev() {
+        currentIndex = (currentIndex - 1 + allEdits.count) % allEdits.count
+        rerender()
     }
 
     func hide() {
@@ -64,6 +89,26 @@ final class SuggestionChip {
         window?.orderOut(nil)
         window = nil
         hostingController = nil
+    }
+
+    private func rerender() {
+        guard let panel = window, let hc = hostingController else { return }
+        let chipView = makeChipView(origin: panel.frame.origin, panel: panel)
+        hc.rootView = chipView
+        sizePanel(panel, hc: hc)
+    }
+
+    private func makeChipView(origin: CGPoint, panel: NSPanel) -> ChipView {
+        let edit = allEdits[currentIndex]
+        let countLabel: String? = allEdits.count > 1 ? "\(currentIndex + 1) of \(allEdits.count)" : nil
+        return ChipView(edit: edit, countLabel: countLabel)
+    }
+
+    private func sizePanel(_ panel: NSPanel, hc: NSHostingController<ChipView>) {
+        let fittingSize = hc.sizeThatFits(in: CGSize(width: 400, height: 200))
+        let finalWidth = max(fittingSize.width, 240)
+        let finalHeight = max(fittingSize.height, 64)
+        panel.setContentSize(CGSize(width: finalWidth, height: finalHeight))
     }
 
     private func elementOrigin(_ element: AXUIElement?) -> CGPoint {
@@ -94,8 +139,7 @@ final class SuggestionChip {
 
 struct ChipView: View {
     let edit: Edit
-    let onAccept: () -> Void
-    let onDismiss: () -> Void
+    let countLabel: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -109,16 +153,21 @@ struct ChipView: View {
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
                 Spacer()
-                Text(edit.category)
-                    .font(.caption2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.gray.opacity(0.25))
-                    .clipShape(Capsule())
+                categoryPill(edit.category)
             }
-            Text("Tab accept · Esc dismiss")
-                .font(.caption2)
-                .foregroundColor(.secondary)
+            HStack(spacing: 4) {
+                if let label = countLabel {
+                    Text(label)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Text("·")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                Text("Tab accept · ↓↑ navigate · Esc dismiss")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
         }
         .padding(12)
         .background(
@@ -127,5 +176,31 @@ struct ChipView: View {
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         )
         .padding(4)
+    }
+
+    private func categoryPill(_ category: String) -> some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(categoryColor(category))
+            .frame(height: 20)
+            .overlay(
+                Text(category.uppercased())
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+            )
+            .fixedSize()
+    }
+
+    private func categoryColor(_ category: String) -> Color {
+        switch category {
+        case "preposition", "comparative":  return Color.blue.opacity(0.85)
+        case "plural":                      return Color.green.opacity(0.85)
+        case "calque":                      return Color.orange.opacity(0.85)
+        case "structure":                   return Color.purple.opacity(0.85)
+        case "typo":                        return Color.red.opacity(0.85)
+        case "apostrophe":                  return Color(.darkGray)
+        case "grammar":                     return Color.gray
+        default:                            return Color.gray
+        }
     }
 }

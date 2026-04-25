@@ -37,6 +37,10 @@ struct StatusResponse: Decodable {
     let model_loaded: Bool
 }
 
+struct ApplyEditsResponse: Decodable {
+    let result: String
+}
+
 enum DaemonError: Error {
     case http(Int)
     case payload(String)
@@ -73,6 +77,14 @@ final class DaemonClient {
             "app": app,
             "tone": tone,
             "note": note,
+        ])
+    }
+
+    func applyEdits(original: String, refined: String, acceptedIndices: [Int]) async throws -> ApplyEditsResponse {
+        try await post(path: "/apply_edits", body: [
+            "original": original,
+            "refined": refined,
+            "accepted_indices": acceptedIndices,
         ])
     }
 

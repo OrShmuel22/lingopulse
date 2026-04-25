@@ -42,36 +42,67 @@ final class AppCoordinator {
     }
 
     private func showChip(edits: [Edit], original: String, refined: String, app: String, element: AXUIElement) {
-        chip.onAccept = { [weak self] _ in
-            self?.applyAndCleanup(refined: refined, original: original, app: app)
+        chip.configure(edits: edits, original: original, refined: refined)
+        chip.show(near: element)
+
+        keyMonitor.onTab = { [weak self] in
+            Task { await self?.acceptCurrentEdit(app: app) }
         }
-        chip.onDismiss = { [weak self] in
-            self?.dismissAndFeedback(input: original, rejected: refined, app: app)
+        keyMonitor.onEsc = { [weak self] in
+            guard let self = self else { return }
+            self.dismissAndFeedback(
+                input: original,
+                rejected: refined,
+                app: app,
+                dismissedCount: self.chip.dismissedCount
+            )
         }
-        keyMonitor.onTab = { [weak self] in self?.chip.onAccept?(0) }
-        keyMonitor.onEsc = { [weak self] in self?.chip.onDismiss?() }
+        keyMonitor.onArrowDown = { [weak self] in self?.chip.cycleNext() }
+        keyMonitor.onArrowUp = { [weak self] in self?.chip.cyclePrev() }
         keyMonitor.onOtherKey = { [weak self] in
             self?.chip.hide()
             self?.keyMonitor.stop()
         }
-        chip.show(edits: edits, near: element)
         keyMonitor.start()
     }
 
-    private func applyAndCleanup(refined: String, original: String, app: String) {
+    private func acceptCurrentEdit(app: String) async {
+        let isLast = chip.acceptCurrent()
+        do {
+            let response = try await daemon.applyEdits(
+                original: chip.originalText,
+                refined: chip.refinedText,
+                acceptedIndices: Array(chip.acceptedIndices)
+            )
+            if isLast {
+                await MainActor.run { self.applyFinalAndCleanup(text: response.result, app: app) }
+            }
+        } catch {
+            NSLog("LingoPulse: apply_edits error \(error)")
+        }
+    }
+
+    private func applyFinalAndCleanup(text: String, app: String) {
         let isTerminal = ["iTerm2", "Terminal", "Alacritty", "WezTerm", "Hyper", "Warp"].contains(app)
         if isTerminal {
-            pasteViaClipboard(refined)
-        } else if !AXClient.writeFocusedValue(refined) {
-            pasteViaClipboard(refined)
+            pasteViaClipboard(text)
+        } else if !AXClient.writeFocusedValue(text) {
+            pasteViaClipboard(text)
         }
         chip.hide()
         keyMonitor.stop()
     }
 
-    private func dismissAndFeedback(input: String, rejected: String, app: String) {
+    private func dismissAndFeedback(input: String, rejected: String, app: String, dismissedCount: Int) {
         Task {
-            try? await daemon.feedback(input: input, rejected: rejected, reason: "other", app: app, tone: "", note: "dismissed via Esc")
+            try? await daemon.feedback(
+                input: input,
+                rejected: rejected,
+                reason: "other",
+                app: app,
+                tone: "",
+                note: "dismissed \(dismissedCount) edits via Esc"
+            )
         }
         chip.hide()
         keyMonitor.stop()
