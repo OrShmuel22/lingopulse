@@ -7,14 +7,20 @@ let package = Package(
     products: [
         .executable(name: "LingoPulseApp", targets: ["LingoPulseApp"]),
         .executable(name: "LingoPulseIME", targets: ["LingoPulseIME"]),
+        .library(name: "LingoPulseIMECore", targets: ["LingoPulseIMECore"]),
     ],
     targets: [
         .executableTarget(
             name: "LingoPulseApp",
             path: "Sources/LingoPulseApp"
         ),
+        .target(
+            name: "LingoPulseIMECore",
+            path: "Sources/LingoPulseIMECore"
+        ),
         .executableTarget(
             name: "LingoPulseIME",
+            dependencies: ["LingoPulseIMECore"],
             path: "Sources/LingoPulseIME",
             linkerSettings: [
                 .linkedFramework("InputMethodKit"),
@@ -25,6 +31,11 @@ let package = Package(
             name: "LingoPulseAppTests",
             dependencies: ["LingoPulseApp"],
             path: "Tests/LingoPulseAppTests"
+        ),
+        .testTarget(
+            name: "LingoPulseIMETests",
+            dependencies: ["LingoPulseIMECore"],
+            path: "Tests/LingoPulseIMETests"
         ),
     ]
 )
