@@ -2,12 +2,13 @@ import json
 import signal
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from lingopulse import config as _config
-from lingopulse import dictionary, fixer, history, hud
+from lingopulse import dictionary, edits, feedback, fixer, history, hud, personal_dict
 from lingopulse.ollama_client import (
     InferenceBusyError,
     OllamaClient,
@@ -72,10 +73,19 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         _config.reload()
         cfg = _config.get()
-        if self.path == "/status":
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        query = urllib.parse.parse_qs(parsed.query)
+        if path == "/status":
             self._handle_status(cfg)
-        elif self.path == "/config":
+        elif path == "/config":
             self._handle_config(cfg)
+        elif path == "/history":
+            self._handle_history_get(query)
+        elif path == "/personal_dict":
+            self._handle_personal_dict_get()
+        elif path == "/feedback":
+            self._handle_feedback_get(query)
         else:
             self._send(404, _err("not found"))
 
@@ -97,6 +107,16 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_dictionary_pick(body, cfg)
         elif self.path == "/capture_style":
             self._handle_capture_style(body)
+        elif self.path == "/personal_dict":
+            self._handle_personal_dict_add(body)
+        elif self.path == "/personal_dict/remove":
+            self._handle_personal_dict_remove(body)
+        elif self.path == "/feedback":
+            self._handle_feedback_post(body)
+        elif self.path == "/edits":
+            self._handle_edits(body)
+        elif self.path == "/apply_edits":
+            self._handle_apply_edits(body)
         else:
             self._send(404, _err("not found"))
 
@@ -135,10 +155,12 @@ class Handler(BaseHTTPRequestHandler):
         ring_id = entries[0].get("timestamp", "") if entries else ""
 
         diff = hud.render_diff(result["original"], result["refined"])
+        structured_edits = edits.compute_edits(result["original"], result["refined"])
         self._send(200, _ok({
             "original": result["original"],
             "refined": result["refined"],
             "diff": diff,
+            "edits": structured_edits,
             "ring_id": ring_id,
         }))
 
@@ -214,6 +236,97 @@ class Handler(BaseHTTPRequestHandler):
             return
         history.append({"mode": "style_example", "text": text, "app": app})
         self._send(200, _ok({"saved": True}))
+
+    def _handle_history_get(self, query: dict) -> None:
+        limit = int(query.get("limit", ["100"])[0])
+        app_filter = query.get("app", [None])[0]
+        mode_filter = query.get("mode", [None])[0]
+        entries = history.read_all()
+        if app_filter:
+            entries = [e for e in entries if e.get("app") == app_filter]
+        if mode_filter:
+            entries = [e for e in entries if e.get("mode") == mode_filter]
+        entries = entries[-limit:] if limit > 0 else entries
+        self._send(200, _ok({"entries": entries, "total": len(entries)}))
+
+    def _handle_personal_dict_get(self) -> None:
+        self._send(200, _ok({"tokens": personal_dict.list_all()}))
+
+    def _handle_personal_dict_add(self, body: dict) -> None:
+        token = body.get("token")
+        scope = body.get("scope", "*")
+        if not token:
+            self._send(400, _err("missing token"))
+            return
+        try:
+            entry = personal_dict.add(token, scope)
+        except ValueError as exc:
+            self._send(400, _err(str(exc)))
+            return
+        self._send(200, _ok({"entry": entry}))
+
+    def _handle_personal_dict_remove(self, body: dict) -> None:
+        token = body.get("token")
+        scope = body.get("scope")
+        if not token:
+            self._send(400, _err("missing token"))
+            return
+        removed = personal_dict.remove(token, scope)
+        self._send(200, _ok({"removed": removed}))
+
+    def _handle_feedback_post(self, body: dict) -> None:
+        try:
+            entry = feedback.append(
+                input_text=body.get("input", ""),
+                rejected_output=body.get("rejected_output", ""),
+                reason=body.get("reason", ""),
+                app=body.get("app", ""),
+                tone=body.get("tone", ""),
+                note=body.get("note", ""),
+            )
+        except ValueError as exc:
+            self._send(400, _err(str(exc)))
+            return
+        self._send(200, _ok({"saved": True, "entry": entry}))
+
+    def _handle_edits(self, body: dict) -> None:
+        original = body.get("original")
+        refined = body.get("refined")
+        if original is None or refined is None:
+            self._send(400, _err("missing original or refined"))
+            return
+        result = edits.compute_edits(original, refined)
+        self._send(200, _ok({"edits": result, "count": len(result)}))
+
+    def _handle_apply_edits(self, body: dict) -> None:
+        original = body.get("original")
+        refined = body.get("refined")
+        accepted = body.get("accepted_indices")
+        if original is None or refined is None or accepted is None:
+            self._send(400, _err("missing original, refined, or accepted_indices"))
+            return
+        if not isinstance(accepted, list):
+            self._send(400, _err("accepted_indices must be a list of ints"))
+            return
+        try:
+            accepted_ints = [int(i) for i in accepted]
+        except (TypeError, ValueError):
+            self._send(400, _err("accepted_indices must contain integers"))
+            return
+        result = edits.apply_edits(original, refined, accepted_ints)
+        self._send(200, _ok({"result": result}))
+
+    def _handle_feedback_get(self, query: dict) -> None:
+        limit = int(query.get("limit", ["100"])[0])
+        reason_filter = query.get("reason", [None])[0]
+        app_filter = query.get("app", [None])[0]
+        entries = feedback.read_all()
+        if reason_filter:
+            entries = [e for e in entries if e.get("reason") == reason_filter]
+        if app_filter:
+            entries = [e for e in entries if e.get("app") == app_filter]
+        entries = entries[-limit:] if limit > 0 else entries
+        self._send(200, _ok({"entries": entries, "total": len(entries)}))
 
 
 def _shutdown_handler(server: ThreadingHTTPServer):

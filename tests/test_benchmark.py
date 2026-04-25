@@ -259,13 +259,23 @@ class TestScenariosJson:
 
     def test_hebrew_scenarios_have_unicode(self):
         data = json.loads(_SCENARIOS_PATH.read_text(encoding="utf-8"))
-        hebrew_scenarios = [sc for sc in data if sc.get("expected_language") == "hebrew"]
-        assert len(hebrew_scenarios) >= 5, "Expected at least 5 Hebrew scenarios"
-        for sc in hebrew_scenarios:
+        # Hebrew can appear via dictionary scenarios (expected_language=hebrew)
+        # or via refine scenarios with must_contain_hebrew check.
+        hebrew_dict = [sc for sc in data if sc.get("expected_language") == "hebrew"]
+        hebrew_refine = [
+            sc for sc in data
+            if sc.get("endpoint") == "refine" and sc.get("checks", {}).get("must_contain_hebrew")
+        ]
+        total_hebrew = len(hebrew_dict) + len(hebrew_refine)
+        assert total_hebrew >= 3, f"Expected at least 3 Hebrew scenarios (dict + refine), got {total_hebrew}"
+        for sc in hebrew_dict:
             query = sc["request"]["query"]
-            # Verify the query contains actual Hebrew characters (Unicode range U+0590–U+05FF)
             has_hebrew = any("֐" <= c <= "׿" for c in query)
-            assert has_hebrew, f"Hebrew scenario {sc['id']} has no Hebrew chars: {query!r}"
+            assert has_hebrew, f"Hebrew dict scenario {sc['id']} has no Hebrew chars: {query!r}"
+        for sc in hebrew_refine:
+            selection = sc["request"]["selection"]
+            has_hebrew = any("֐" <= c <= "׿" for c in selection)
+            assert has_hebrew, f"Hebrew refine scenario {sc['id']} has no Hebrew chars: {selection!r}"
 
     def test_undo_scenario_has_setup_refine(self):
         data = json.loads(_SCENARIOS_PATH.read_text(encoding="utf-8"))

@@ -18,12 +18,6 @@ DEFAULTS = {
         "active_hours_end": "22:00",
         "login_warmup": True
     },
-    "feedback": {
-        "hud_show_after_ms": 100,
-        "hud_cold_start_notice_after_ms": 2000,
-        "hud_error_after_ms": 15000,
-        "toast_duration_seconds": 5
-    },
     "tone": {
         "default_tone": "Neutral",
         "app_map": {
@@ -46,8 +40,15 @@ DEFAULTS = {
     "history": {
         "path": "~/.config/lingopulse/history.jsonl"
     },
-    "tone_overrides": {
-        "path": "~/.config/lingopulse/tone_overrides.json"
+    "feedback": {
+        "path": "~/.config/lingopulse/feedback.jsonl",
+        "hud_show_after_ms": 100,
+        "hud_cold_start_notice_after_ms": 2000,
+        "hud_error_after_ms": 15000,
+        "toast_duration_seconds": 5
+    },
+    "personal_dict": {
+        "path": "~/.config/lingopulse/personal_dict.json"
     },
     "daemon": {
         "port": 17823
