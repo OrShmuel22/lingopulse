@@ -1,161 +1,492 @@
 [
   {
-    "id": "refine-slack-01",
+    "id": "llm-debug-01",
     "endpoint": "refine",
-    "description": "Casual Slack question about deployment status",
+    "description": "LLM prompt — fast typing, Hebrew possessive, word order flipped, no aux verb",
     "request": {
-      "selection": "hey can u check if the deploy went thru? i dont see the changes on prod",
-      "app": "Slack",
-      "tone_override": "Casual"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_meaning": "deployment"
-    },
-    "expected_tone": "Casual",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-slack-02",
-    "endpoint": "refine",
-    "description": "Casual Slack status update mid-sprint",
-    "request": {
-      "selection": "just a quick update – im blocked on the auth PR, waiting for johns review since yesterday",
-      "app": "Slack",
-      "tone_override": "Casual"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_meaning": "blocked"
-    },
-    "expected_tone": "Casual",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-slack-03",
-    "endpoint": "refine",
-    "description": "Casual Slack request to push a meeting",
-    "request": {
-      "selection": "hey can we push the 3pm standup by like 30 mins? have a hard stop at 3",
-      "app": "Slack",
-      "tone_override": "Casual"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_meaning": "standup"
-    },
-    "expected_tone": "Casual",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-slack-04",
-    "endpoint": "refine",
-    "description": "Casual Slack correction after mistake",
-    "request": {
-      "selection": "actually nvm ignore my last msg – the bug was on my end, fixed it already",
-      "app": "Slack",
-      "tone_override": "Casual"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true
-    },
-    "expected_tone": "Casual",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-slack-05",
-    "endpoint": "refine",
-    "description": "Casual Slack acknowledgment",
-    "request": {
-      "selection": "yep sounds good, ill take care of it after lunch",
-      "app": "Slack",
-      "tone_override": "Casual"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true
-    },
-    "expected_tone": "Casual",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-email-01",
-    "endpoint": "refine",
-    "description": "Professional email: polite request to teammate for code review",
-    "request": {
-      "selection": "Hi Sarah, I wanted to check if you had a chance to look at the pull request I submitted on Monday. It's blocking the release and I'd really appreciate your review when you get a moment. Let me know if you have any questions. Thanks",
-      "app": "Mail",
-      "tone_override": "Professional"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_meaning": "review"
-    },
-    "expected_tone": "Professional",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-email-02",
-    "endpoint": "refine",
-    "description": "Professional email: sprint status update to manager",
-    "request": {
-      "selection": "Hi Mark, wanted to send a quick update on where we are this sprint. We completed the authentication module and the dashboard redesign. The payment integration is in progress but we hit an unexpected issue with the Stripe webhook handling that is taking longer than estimated. We expect to have it resolved by Thursday. Let me know if you need more details.",
-      "app": "Mail",
-      "tone_override": "Professional"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_meaning": "Stripe"
-    },
-    "expected_tone": "Professional",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-email-03",
-    "endpoint": "refine",
-    "description": "Professional email: polite bug report to vendor",
-    "request": {
-      "selection": "Hello, I am writing to report an issue we have encountered with your SDK version 3.2.1. When we call the batch export endpoint with more than 500 records the response consistently returns a 500 error. We have confirmed this is reproducible in our staging environment and have attached logs for your reference. We would appreciate guidance on a fix or workaround as this is affecting our production workflow. Thank you for your help.",
-      "app": "Mail",
-      "tone_override": "Professional"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_meaning": "500"
-    },
-    "expected_tone": "Professional",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-long-incident-01",
-    "endpoint": "refine",
-    "description": "Neutral tone: 300-word incident summary stress test",
-    "request": {
-      "selection": "Incident Summary – April 19 2026\n\nAt 14:32 UTC our monitoring system triggered a P1 alert for elevated error rates on the payments service. The on-call engineer acknowledged the alert within 4 minutes and began triaging. Initial investigation pointed to increased latency on database queries in the checkout flow, specifically the inventory lock table which was showing wait times of over 800ms per transaction.\n\nAt 14:48 UTC the team identified a query that had regressed after the 14:10 deploy. A recent migration had removed a composite index on (user_id, product_id) in the inventory_locks table, causing full table scans under load. The payments service degraded because checkout transactions were timing out waiting for the lock query to complete.\n\nMitigation began at 14:55 UTC by re-adding the index via a hotfix migration script applied directly to the primary database. The index build completed in approximately 6 minutes. Error rates began recovering at 15:03 UTC and returned to baseline by 15:11 UTC. Total customer-visible impact window was 39 minutes.\n\nRoot cause: the migration in PR-2847 removed the composite index as part of a schema cleanup without a corresponding load test to validate query performance at production traffic levels. The code review process did not catch the performance implication.\n\nAction items: add a required performance review step to the database migration checklist, introduce an automated index coverage check in CI, and require staging load tests for any migration touching tables with over 1 million rows. Owner: infrastructure team. Target completion: May 3 2026.",
-      "app": "Notes",
+      "selection": "why useEffect שלי runing in loop infinite? i have inside setState ולא יודע למה",
+      "app": "Cursor",
       "tone_override": "Neutral"
     },
     "checks": {
       "has_refined": true,
       "not_empty": true,
-      "preserves_meaning": "PR-2847"
+      "preserves_tokens": ["useEffect", "setState"]
     },
     "expected_tone": "Neutral",
     "must_preserve": []
   },
   {
+    "id": "llm-error-paste-01",
+    "endpoint": "refine",
+    "description": "LLM prompt — pasted error + Hebrew clause + typos",
+    "request": {
+      "selection": "im geting this error TypeError: cannot read properties of undefined (reading 'map'). its hapen wen api retuning empty array, לא בטוח how to handel. how fix?",
+      "app": "Cursor",
+      "tone_override": "Neutral"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["TypeError", "map"],
+      "preserves_meaning": "api"
+    },
+    "expected_tone": "Neutral",
+    "must_preserve": []
+  },
+  {
+    "id": "llm-arch-question-01",
+    "endpoint": "refine",
+    "description": "LLM prompt — calque 'i want that you', wrong word, run-on, missing aux",
+    "request": {
+      "selection": "i want that you tell me, redis better or memcached for sessions of users? cause i have alot data of catalog products it changing barely also",
+      "app": "Cursor",
+      "tone_override": "Neutral"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["redis", "memcached"],
+      "forbid_tokens": ["i want that you"]
+    },
+    "expected_tone": "Neutral",
+    "must_preserve": []
+  },
+  {
+    "id": "llm-refactor-01",
+    "endpoint": "refine",
+    "description": "LLM prompt — typos, missing 'to', Hebrew tail",
+    "request": {
+      "selection": "tahx! can u refacter getUserOrders() use async/await istead of promies chain? also add proper handeling for errors בבקשה",
+      "app": "Cursor",
+      "tone_override": "Neutral"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["getUserOrders()", "async/await"]
+    },
+    "expected_tone": "Neutral",
+    "must_preserve": []
+  },
+  {
+    "id": "search-howto-01",
+    "endpoint": "refine",
+    "description": "Google search — fragment with Hebrew tail",
+    "request": {
+      "selection": "fix race condition node js איך",
+      "app": "Chrome",
+      "tone_override": "Neutral"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["race condition", "node"]
+    },
+    "expected_tone": "Neutral",
+    "must_preserve": []
+  },
+  {
+    "id": "search-error-01",
+    "endpoint": "refine",
+    "description": "Google search — error code with Hebrew clause",
+    "request": {
+      "selection": "EADDRINUSE error port 3000 mac איך לסגור",
+      "app": "Chrome",
+      "tone_override": "Neutral"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["EADDRINUSE", "3000"]
+    },
+    "expected_tone": "Neutral",
+    "must_preserve": []
+  },
+  {
+    "id": "search-howto-02",
+    "endpoint": "refine",
+    "description": "Google search — word order reversed (Hebrew SVO)",
+    "request": {
+      "selection": "postgres connect docker compose how",
+      "app": "Chrome",
+      "tone_override": "Neutral"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["postgres", "docker compose"]
+    },
+    "expected_tone": "Neutral",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-slack-standup-01",
+    "endpoint": "refine",
+    "description": "Slack standup — heavy typos, 'until' calque, missing articles",
+    "request": {
+      "selection": "yesteday i was workinh on auth bug, today im continueing it, until end of day will probebly finsh. no blocker",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "auth",
+      "forbid_tokens": ["until end of day"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-slack-blocker-01",
+    "endpoint": "refine",
+    "description": "Slack ask-for-help — calque 'make me a favor' + Hebrew thanks",
+    "request": {
+      "selection": "hey, im stuck on deployment pipline, can u make me a favor and check the github actions config? תודה!",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["github actions"],
+      "forbid_tokens": ["make me a favor"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-slack-question-01",
+    "endpoint": "refine",
+    "description": "Slack code-switched question — Hebrew subject + 'responsible on' calque",
+    "request": {
+      "selection": "מי responsible on staging environment? צריך לעשות redeploy עכשיו",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "staging",
+      "forbid_tokens": ["responsible on"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-email-manager-01",
+    "endpoint": "refine",
+    "description": "Email to manager — typos, abbreviations inappropriate for Pro tone, calques",
+    "request": {
+      "selection": "Hi David, i wanted update u on migration project. we finished with phase 1 and now starting phase 2. until end of next week we suppose to be done with all the data migrations. lemme know if you have concernes.",
+      "app": "Mail",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "migration",
+      "forbid_tokens": ["lemme", " u "],
+      "min_output_words": 25
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-email-pm-01",
+    "endpoint": "refine",
+    "description": "Email reply to PM — 'feedbacks' plural, 'make a meeting' calque, typos",
+    "request": {
+      "selection": "Hi Maya, i checked the design and have some feedbacks. main concern is about loading state, im not sure its handeled in all the cases. can we make a meeting tomorow to dicuss?",
+      "app": "Mail",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "loading state",
+      "forbid_tokens": ["feedbacks", "make a meeting"]
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-email-pto-01",
+    "endpoint": "refine",
+    "description": "Email PTO request — missing 'to', typos, missing articles",
+    "request": {
+      "selection": "Hi, i woud like take vacation in dates 15-20 next month. i will handover my taskes before. let me know if its okay also if its problem",
+      "app": "Mail",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "vacation"
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-email-external-01",
+    "endpoint": "refine",
+    "description": "Email to external — 'interested to' calque, multiple typos",
+    "request": {
+      "selection": "Hi team, We are intrested to integrate with your API for our payment flow. we have some quetsions about the rate limits and authetication mechanism, can u share documantation please?",
+      "app": "Mail",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["API"],
+      "preserves_meaning": "rate limits",
+      "forbid_tokens": ["intrested to integrate"]
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-jira-bug-01",
+    "endpoint": "refine",
+    "description": "Jira bug — 'is depend on', 'informations', double comparative, typos",
+    "request": {
+      "selection": "When user click on submit button on checkout page, the request is failing and we get error 500. this is depend on cart size, more bigger cart more chance to fail. logs showing many informations but cant find the root casue. need to investigate ASAP, this blocking lot of users.",
+      "app": "Jira",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "checkout",
+      "preserves_tokens": ["500"],
+      "forbid_tokens": ["informations", "is depend on", "more bigger"],
+      "min_output_words": 35
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-jira-feature-01",
+    "endpoint": "refine",
+    "description": "Jira feature description — missing 'to be', missing articles, typos",
+    "request": {
+      "selection": "As user i want be able filter products by price range, so that i can find items in my budget. the filter need to support min and max price, also some perset ranges like 0-50, 50-100, 100-200 etc. UI should be slider with input fields also.",
+      "app": "Jira",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "filter",
+      "preserves_tokens": ["0-50", "50-100"]
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-jira-comment-01",
+    "endpoint": "refine",
+    "description": "Jira comment — wrong plural, missing 'to', missing aux",
+    "request": {
+      "selection": "i investigated this bug, the issue is in cache invalidation logic. when user is updating profile, the cache not invalidating for the related entitys. need fix this also for team and organization caches, otherwise we have stale data forever.",
+      "app": "Jira",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_meaning": "cache",
+      "preserves_tokens": ["invalidation"]
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-jira-status-01",
+    "endpoint": "refine",
+    "description": "Jira status — typos, 'until tomorrow' calque, missing articles",
+    "request": {
+      "selection": "Update: i finished the implemention and pushed PR #4421. waiting now for review from the team. until tomorow morning i should have it merged, after that will start with integrtion tests.",
+      "app": "Jira",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["PR", "#4421"],
+      "forbid_tokens": ["until tomorow morning", "until tomorrow morning"]
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-confluence-arch-01",
+    "endpoint": "refine",
+    "description": "Confluence arch doc — 'responsible on', wrong plurals, missing 's', typos",
+    "request": {
+      "selection": "The auth service is responsible on validating user tokens and managing sessions. it connects to redis for sessions storage and to postgres for users metadata. the service expose REST API on port 8080 also gRPC interface on port 50051 for internal communcations between services.",
+      "app": "Confluence",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["redis", "postgres", "8080", "50051", "gRPC"],
+      "forbid_tokens": ["responsible on", "communcations"],
+      "min_output_words": 35
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-confluence-howto-01",
+    "endpoint": "refine",
+    "description": "Confluence how-to — typos stacked, 'until you finished' calque",
+    "request": {
+      "selection": "to setup the dev enviroment, first install docker and node 18+. then clone the repo and run npm install in root folder. until you finshed the install, dont start the docker compose, becuse it will fail without dependencies.",
+      "app": "Confluence",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["docker", "node 18", "npm install", "docker compose"],
+      "forbid_tokens": ["enviroment", "becuse"],
+      "min_output_words": 30
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-confluence-runbook-01",
+    "endpoint": "refine",
+    "description": "Confluence runbook — 'many times' calque, missing aux + article, typos",
+    "request": {
+      "selection": "When the alert fires for high memory usage on payments service, first thing to check is database connection pool. many times the issue is connection leak from spesific endpoint. dashboards in grafana showing the connection count per pod, also there is panel for slow queries.",
+      "app": "Confluence",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["payments service", "grafana"],
+      "preserves_meaning": "connection",
+      "forbid_tokens": ["spesific"]
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-confluence-decision-01",
+    "endpoint": "refine",
+    "description": "Confluence decision record — missing 'to', typos, missing 'is'",
+    "request": {
+      "selection": "We decided use postgres istead of mongodb for the new service, becuse our data is highly relational and we need strong consitency guarntees. mongodb would be better for documents storage but our use case closer to traditonal SQL workloads.",
+      "app": "Confluence",
+      "tone_override": "Professional"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "preserves_tokens": ["postgres", "mongodb", "SQL"],
+      "forbid_tokens": ["istead", "becuse", "consitency"],
+      "min_output_words": 30
+    },
+    "expected_tone": "Professional",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-hebrew-slack-01",
+    "endpoint": "refine",
+    "description": "Heavy code-switching Hebrew/English Slack — must stay bilingual, preserve tech terms",
+    "request": {
+      "selection": "מישהו can help? אני stuck על באג ב-API of payments, looks like הבעיה related to rate limiting אבל not sure",
+      "app": "Slack",
+      "tone_override": "Casual"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "must_contain_hebrew": true,
+      "preserves_tokens": ["API", "payments", "rate limiting"]
+    },
+    "expected_tone": "Casual",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-hebrew-llm-01",
+    "endpoint": "refine",
+    "description": "Hebrew context for LLM prompt — code-switched, must preserve both languages",
+    "request": {
+      "selection": "יש לי table ב-postgres עם 5 milion records, the query לוקחת 30 sec. הוספתי index על user_id אבל לא עזר. how can optimize this query? אולי איזה suggestion?",
+      "app": "Cursor",
+      "tone_override": "Neutral"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "must_contain_hebrew": true,
+      "preserves_tokens": ["postgres", "user_id"]
+    },
+    "expected_tone": "Neutral",
+    "must_preserve": []
+  },
+  {
+    "id": "refine-hebrew-search-01",
+    "endpoint": "refine",
+    "description": "Hebrew Google search — Hebrew bookending English tech terms",
+    "request": {
+      "selection": "race condition node.js איך לתקן fast",
+      "app": "Chrome",
+      "tone_override": "Neutral"
+    },
+    "checks": {
+      "has_refined": true,
+      "not_empty": true,
+      "must_contain_hebrew": true,
+      "preserves_tokens": ["race condition", "node.js"]
+    },
+    "expected_tone": "Neutral",
+    "must_preserve": []
+  },
+  {
+    "id": "dict-he-formal-01",
+    "endpoint": "dictionary",
+    "description": "Hebrew query for formal English equivalent in tech context",
+    "request": {
+      "query": "מילה מקצועית ל'לתקן באג'",
+      "context": ""
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1,
+      "has_confidence_field": true,
+      "register_match_formal": true
+    },
+    "expected_language": "hebrew"
+  },
+  {
+    "id": "dict-en-tipoftongue-01",
+    "endpoint": "dictionary",
+    "description": "English tip-of-tongue with grammar error in query — casual word for 'investigate'",
+    "request": {
+      "query": "casual word that mean investigate or look into",
+      "context": ""
+    },
+    "checks": {
+      "has_candidates": true,
+      "min_candidates": 1
+    },
+    "expected_language": "english"
+  },
+  {
     "id": "refine-code-preserve-01",
     "endpoint": "refine",
-    "description": "Refine text that contains React code identifiers that must not be mutated",
+    "description": "Slack about code — Hebrew prefix on identifier, wrong agreement",
     "request": {
-      "selection": "i added the click handler in handleClick() and also the side effect logic lives in useEffect – both need tests before we merge",
+      "selection": "i added the click handler ב-handleClick() also useEffect for side effects, both needs tests לפני merge",
       "app": "Slack",
       "tone_override": "Casual"
     },
@@ -165,48 +496,14 @@
       "preserves_tokens": ["handleClick()", "useEffect"]
     },
     "expected_tone": "Casual",
-    "must_preserve": ["handleClick()", "useEffect"]
-  },
-  {
-    "id": "refine-code-preserve-02",
-    "endpoint": "refine",
-    "description": "Refine text mentioning a React hook that must survive verbatim",
-    "request": {
-      "selection": "the problem is in useEffect – its running on every render because the dep array is wrong. also the useCallback wrapping handleClick() isnt memoizing correctly",
-      "app": "Slack",
-      "tone_override": "Casual"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_tokens": ["handleClick()", "useEffect", "useCallback"]
-    },
-    "expected_tone": "Casual",
-    "must_preserve": ["handleClick()", "useEffect", "useCallback"]
+    "must_preserve": []
   },
   {
     "id": "refine-url-preserve-01",
     "endpoint": "refine",
-    "description": "Refine message containing a PR URL that must not be touched",
+    "description": "Slack with URL + Hebrew tail — placeholder round-trip + Hebrew preservation",
     "request": {
-      "selection": "hey can u take a look at https://github.com/acme-corp/backend/pull/2847 before EOD? its blocking the release",
-      "app": "Slack",
-      "tone_override": "Casual"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_tokens": ["https://github.com/acme-corp/backend/pull/2847"]
-    },
-    "expected_tone": "Casual",
-    "must_preserve": ["https://github.com/acme-corp/backend/pull/2847"]
-  },
-  {
-    "id": "refine-url-preserve-02",
-    "endpoint": "refine",
-    "description": "Refine message containing a Jira ticket URL that must survive intact",
-    "request": {
-      "selection": "the full context is in https://acme.atlassian.net/browse/PLAT-4421 – i added the repro steps and logs there",
+      "selection": "the full context is here https://acme.atlassian.net/browse/PLAT-4421 – i added repro steps and לוגים שם",
       "app": "Slack",
       "tone_override": "Casual"
     },
@@ -216,146 +513,7 @@
       "preserves_tokens": ["https://acme.atlassian.net/browse/PLAT-4421"]
     },
     "expected_tone": "Casual",
-    "must_preserve": ["https://acme.atlassian.net/browse/PLAT-4421"]
-  },
-  {
-    "id": "dict-en-01",
-    "endpoint": "dictionary",
-    "description": "English: professional word for restarting a server",
-    "request": {
-      "query": "professional word for restart a server"
-    },
-    "checks": {
-      "has_candidates": true,
-      "min_candidates": 1,
-      "register_match_formal": true
-    },
-    "expected_language": "english"
-  },
-  {
-    "id": "dict-en-02",
-    "endpoint": "dictionary",
-    "description": "English: casual way to agree",
-    "request": {
-      "query": "casual way to say I agree"
-    },
-    "checks": {
-      "has_candidates": true,
-      "min_candidates": 1
-    },
-    "expected_language": "english"
-  },
-  {
-    "id": "dict-en-03",
-    "endpoint": "dictionary",
-    "description": "English: technical term for queue overflow",
-    "request": {
-      "query": "technical term for when a queue overflows and drops messages"
-    },
-    "checks": {
-      "has_candidates": true,
-      "min_candidates": 1
-    },
-    "expected_language": "english"
-  },
-  {
-    "id": "dict-en-04",
-    "endpoint": "dictionary",
-    "description": "English: professional word for being overwhelmed",
-    "request": {
-      "query": "word for being overwhelmed at work but professional"
-    },
-    "checks": {
-      "has_candidates": true,
-      "min_candidates": 1,
-      "register_match_formal": true
-    },
-    "expected_language": "english"
-  },
-  {
-    "id": "dict-en-05",
-    "endpoint": "dictionary",
-    "description": "English: word for the feeling of missing out",
-    "request": {
-      "query": "English word for the feeling of missing out on something"
-    },
-    "checks": {
-      "has_candidates": true,
-      "min_candidates": 1
-    },
-    "expected_language": "english"
-  },
-  {
-    "id": "dict-he-01",
-    "endpoint": "dictionary",
-    "description": "Hebrew: professional way to say restart a server",
-    "request": {
-      "query": "להפעיל מחדש שרת באופן מקצועי"
-    },
-    "checks": {
-      "has_candidates": true,
-      "min_candidates": 1,
-      "has_confidence_field": true,
-      "register_match_formal": true
-    },
-    "expected_language": "hebrew"
-  },
-  {
-    "id": "dict-he-02",
-    "endpoint": "dictionary",
-    "description": "Hebrew: feeling overwhelmed at work",
-    "request": {
-      "query": "רגש של להרגיש מוצף בעבודה"
-    },
-    "checks": {
-      "has_candidates": true,
-      "min_candidates": 1,
-      "has_confidence_field": true
-    },
-    "expected_language": "hebrew"
-  },
-  {
-    "id": "dict-he-03",
-    "endpoint": "dictionary",
-    "description": "Hebrew: action verb for closing a task",
-    "request": {
-      "query": "פעולה של לסגור משימה"
-    },
-    "checks": {
-      "has_candidates": true,
-      "min_candidates": 1,
-      "has_confidence_field": true
-    },
-    "expected_language": "hebrew"
-  },
-  {
-    "id": "dict-he-04",
-    "endpoint": "dictionary",
-    "description": "Hebrew: business formal word for approving a budget",
-    "request": {
-      "query": "מילה עסקית רשמית לאישור תקציב"
-    },
-    "checks": {
-      "has_candidates": true,
-      "min_candidates": 1,
-      "has_confidence_field": true,
-      "register_match_formal": true
-    },
-    "expected_language": "hebrew"
-  },
-  {
-    "id": "dict-he-05",
-    "endpoint": "dictionary",
-    "description": "Hebrew: casual way to say you're on it",
-    "request": {
-      "query": "ביטוי יומיומי שאני עובד על זה עכשיו"
-    },
-    "checks": {
-      "has_candidates": true,
-      "min_candidates": 1,
-      "has_confidence_field": true
-    },
-    "expected_language": "hebrew"
+    "must_preserve": []
   },
   {
     "id": "undo-01",
@@ -373,116 +531,12 @@
   {
     "id": "capture-style-01",
     "endpoint": "capture_style",
-    "description": "Capture style: save a polished example sentence",
+    "description": "Capture style example — saved acknowledgment",
     "request": {
-      "text": "We identified the root cause as a missing composite index and restored service within 39 minutes.",
-      "app": "Notes"
+      "text": "Hey team, just a quick heads-up that the staging deploy is rolling out now."
     },
     "checks": {
       "saved_true": true
     }
-  },
-  {
-    "id": "refine-typo-no-hallucinate-01",
-    "endpoint": "refine",
-    "description": "Typo fix must not turn 'same' (misspelled 'sam') into a person's name",
-    "request": {
-      "selection": "hey team i wanna let u no that the deploy faild agian on staging, same bug as yestarday i think its relatd to the enviroment varibles we added",
-      "app": "Slack",
-      "tone_override": "Casual"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_meaning": "same",
-      "forbid_tokens": ["sam has", "Sam has"]
-    },
-    "expected_tone": "Casual",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-homophone-01",
-    "endpoint": "refine",
-    "description": "Fix your→you're, there→their, its→it's, should of→should have",
-    "request": {
-      "selection": "your right, there going to there office later. its to late to change they're plans now. we should of told them sooner",
-      "app": "Slack",
-      "tone_override": "Casual"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_tokens": ["You're", "their office", "too late", "should have"]
-    },
-    "expected_tone": "Casual",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-long-content-preserve-01",
-    "endpoint": "refine",
-    "description": "Long formal email must preserve key phrases, not over-summarize",
-    "request": {
-      "selection": "Hi David, I wanted to follow up on our conversation from last week regarding the Q2 budget allocation. Our team has reviewed the proposed numbers and I think we have some concerns about the DevOps infrastructure line item being too conservative given our growth projections. Could we schedule a meeting this week to discuss?",
-      "app": "Mail",
-      "tone_override": "Professional"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_tokens": ["last week", "Q2", "DevOps"],
-      "min_output_words": 35
-    },
-    "expected_tone": "Professional",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-hebrew-stays-hebrew-01",
-    "endpoint": "refine",
-    "description": "Hebrew input with typos must return refined Hebrew, not English translation",
-    "request": {
-      "selection": "היי, רציתי להגיד שה-deployment שלי נתקע באמצע, ואין לי מושג למה. הייתי שמח אם מישיהו יוכל לעזור איתי לדבג את זה, זה כבר שעה שאני מנסה לבד",
-      "app": "Slack",
-      "tone_override": "Casual"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "must_contain_hebrew": true,
-      "preserves_tokens": ["deployment"]
-    },
-    "expected_tone": "Casual",
-    "must_preserve": []
-  },
-  {
-    "id": "refine-runon-content-01",
-    "endpoint": "refine",
-    "description": "Run-on sentence restructured without losing key details (20 minutes, index)",
-    "request": {
-      "selection": "ok so basically what happend is the deployment went fine but then the database migration stuck halfway through i dont know why maybe its the index building its been running for 20 minutes already and not sure if we should kill it or wait what do you think",
-      "app": "Slack",
-      "tone_override": "Casual"
-    },
-    "checks": {
-      "has_refined": true,
-      "not_empty": true,
-      "preserves_meaning": "migration",
-      "preserves_tokens": ["20 minutes", "index"]
-    },
-    "expected_tone": "Casual",
-    "must_preserve": []
-  },
-  {
-    "id": "dict-3-candidates-required-01",
-    "endpoint": "dictionary",
-    "description": "Clear professional-register query must return at least 3 candidates",
-    "request": {
-      "query": "a professional word for restarting a server after a crash"
-    },
-    "checks": {
-      "has_candidates": true,
-      "min_candidates": 3,
-      "register_match_formal": true
-    },
-    "expected_language": "english"
   }
 ]
