@@ -6,11 +6,20 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "LingoPulseApp", targets: ["LingoPulseApp"]),
+        .executable(name: "LingoPulseIME", targets: ["LingoPulseIME"]),
     ],
     targets: [
         .executableTarget(
             name: "LingoPulseApp",
             path: "Sources/LingoPulseApp"
+        ),
+        .executableTarget(
+            name: "LingoPulseIME",
+            path: "Sources/LingoPulseIME",
+            linkerSettings: [
+                .linkedFramework("InputMethodKit"),
+                .linkedFramework("AppKit"),
+            ]
         ),
         .testTarget(
             name: "LingoPulseAppTests",

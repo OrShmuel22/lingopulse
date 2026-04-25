@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>LingoPulseIME</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.lingopulse.ime</string>
+    <key>CFBundleName</key>
+    <string>LingoPulseIME</string>
+    <key>CFBundleDisplayName</key>
+    <string>LingoPulse Input Method</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <!-- InputMethodKit registration keys -->
+    <key>InputMethodConnectionName</key>
+    <string>com.lingopulse.ime_Connection</string>
+    <key>InputMethodServerControllerClass</key>
+    <string>LingoPulseIMEController</string>
+    <!-- The IME should appear in System Settings > Keyboard > Input Sources -->
+    <key>ComponentInputModeDict</key>
+    <dict>
+        <key>tsInputModeListKey</key>
+        <dict>
+            <key>com.lingopulse.inputmode.english</key>
+            <dict>
+                <key>TISInputSourceID</key>
+                <string>com.lingopulse.inputmode.english</string>
+                <key>TISIntendedLanguage</key>
+                <string>en</string>
+            </dict>
+        </dict>
+    </dict>
+    <key>NSHumanReadableCopyright</key>
+    <string>LingoPulse</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+</dict>
+</plist>
