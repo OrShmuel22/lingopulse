@@ -19,9 +19,9 @@ final class HotkeyManager {
     }
 
     private func register() {
-        // ⌘⌥E (cmd+option+e)
+        // ⌘⌥G (cmd+option+g) — avoids collision with Raycast's ⌘⌥E
         let modifiers: UInt32 = UInt32(cmdKey | optionKey)
-        let keyCode: UInt32 = UInt32(kVK_ANSI_E)
+        let keyCode: UInt32 = UInt32(kVK_ANSI_G)
         let hotKeyID = EventHotKeyID(signature: OSType(0x4C50_5246), id: 1) // 'LPRF'
 
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))

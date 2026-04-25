@@ -18,7 +18,7 @@ final class MenuBarController: NSObject {
         }
 
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Refine Selection (⌘⌥E)", action: #selector(refineNow), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Refine Selection (⌘⌥G)", action: #selector(refineNow), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Daemon Status…", action: #selector(checkStatus), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())

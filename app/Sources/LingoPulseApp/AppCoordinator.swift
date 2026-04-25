@@ -10,7 +10,6 @@ final class AppCoordinator {
     func refineFocusedSelection() {
         guard let (text, app) = AXClient.readSelection() else {
             NSLog("LingoPulse: no selection or AX denied.")
-            showToast(title: "LingoPulse", body: "No selection (or grant Accessibility).")
             return
         }
         NSLog("LingoPulse: refining \(text.count) chars from \(app)")
@@ -25,14 +24,13 @@ final class AppCoordinator {
                 if AXClient.writeFocusedValue(resp.refined) {
                     NSLog("LingoPulse: pasted via AX write")
                 } else {
-                    NSLog("LingoPulse: AX write failed, falling back to pasteboard")
+                    NSLog("LingoPulse: AX write failed, copying to clipboard")
                     pasteViaClipboard(resp.refined)
                 }
+            } catch DaemonError.http(409) {
+                NSLog("LingoPulse: busy (another refine in flight) — try again in a moment")
             } catch {
-                NSLog("LingoPulse: refine error \(error)")
-                await MainActor.run {
-                    showToast(title: "LingoPulse error", body: "\(error)")
-                }
+                NSLog("LingoPulse: refine error: \(error)")
             }
         }
     }
@@ -41,13 +39,12 @@ final class AppCoordinator {
         Task {
             do {
                 let s = try await daemon.status()
+                NSLog("LingoPulse status: model=\(s.model) loaded=\(s.model_loaded)")
                 await MainActor.run {
                     showToast(title: "Daemon", body: "model=\(s.model) loaded=\(s.model_loaded)")
                 }
             } catch {
-                await MainActor.run {
-                    showToast(title: "Daemon error", body: "\(error)")
-                }
+                NSLog("LingoPulse status error: \(error)")
             }
         }
     }
