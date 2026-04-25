@@ -23,7 +23,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &prefsObservers)
 
         let url = URL(string: prefs.daemonURL) ?? Constants.Daemon.defaultURL
-        let coordinator = AppCoordinator(daemon: DaemonClient(baseURL: url))
+        let daemon = DaemonClient(baseURL: url)
+        let accessibility = AccessibilityService()
+        let pipeline = SuggestionPipeline(daemon: daemon)
+        let presenter = ChipPresenter()
+        let coordinator = AppCoordinator(
+            daemon: daemon,
+            accessibility: accessibility,
+            pipeline: pipeline,
+            presenter: presenter
+        )
         self.coordinator = coordinator
 
         if prefs.enabled {

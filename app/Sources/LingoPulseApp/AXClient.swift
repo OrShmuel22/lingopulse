@@ -7,8 +7,8 @@ enum AXClient {
         return AXIsProcessTrustedWithOptions(opts)
     }
 
-    /// Returns selection text + frontmost app bundle name.
-    static func readSelection() -> (text: String, app: String)? {
+    /// Returns selection text, frontmost app bundle name, and the focused AXUIElement.
+    static func readSelection() -> (text: String, app: String, element: AXUIElement?)? {
         let trustedNow = AXIsProcessTrusted()
         guard let app = NSWorkspace.shared.frontmostApplication else {
             Log.debug("AX: no frontmost app (trusted=\(trustedNow))")
@@ -34,14 +34,14 @@ enum AXClient {
         let selErr = AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &selectedRef)
         if selErr == .success, let selected = selectedRef as? String, !selected.isEmpty {
             Log.debug("AX: got kAXSelectedText (\(selected.count) chars)")
-            return (selected, appName)
+            return (selected, appName, element)
         }
 
         var valueRef: CFTypeRef?
         let valErr = AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueRef)
         if valErr == .success, let value = valueRef as? String, !value.isEmpty {
             Log.debug("AX: got kAXValue (\(value.count) chars)")
-            return (value, appName)
+            return (value, appName, element)
         }
 
         Log.debug("AX: focus reachable but no text — selErr=\(selErr.rawValue) valErr=\(valErr.rawValue). Try selecting text first.")
