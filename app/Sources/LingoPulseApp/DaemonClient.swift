@@ -1,5 +1,20 @@
 import Foundation
 
+struct FeedbackResponse: Decodable {
+    let saved: Bool
+    let entry: FeedbackEntry?
+}
+
+struct FeedbackEntry: Decodable {
+    let timestamp: String
+    let input: String
+    let rejected_output: String
+    let reason: String
+    let app: String
+    let tone: String
+    let note: String
+}
+
 struct RefineResponse: Decodable {
     let original: String
     let refined: String
@@ -48,6 +63,17 @@ final class DaemonClient {
         var body: [String: Any] = ["selection": selection, "app": app]
         if let tone = toneOverride { body["tone_override"] = tone }
         return try await post(path: "/refine", body: body)
+    }
+
+    func feedback(input: String, rejected: String, reason: String, app: String, tone: String, note: String = "") async throws -> FeedbackResponse {
+        try await post(path: "/feedback", body: [
+            "input": input,
+            "rejected_output": rejected,
+            "reason": reason,
+            "app": app,
+            "tone": tone,
+            "note": note,
+        ])
     }
 
     // MARK: - core HTTP
