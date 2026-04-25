@@ -17,7 +17,15 @@ import LingoPulseIMECore
 ///
 /// Auto-dismiss:
 ///   The panel dismisses itself after 8 seconds unless the caller calls hide()
-///   first.  Tab / Escape handling is logged here as a stub for Phase 6.
+///   first.
+///
+/// Multi-edit cycling:
+///   Up/Down arrow keys cycle `selectedIndex` over the edit list.  The controller
+///   reads `selectedIndex` via `currentIndex` and calls `cycleUp()` / `cycleDown()`.
+///
+/// Callbacks:
+///   `onAccept` — called with the index to accept when Tab is pressed.
+///   `onDismiss` — called when Escape is pressed.
 final class SuggestionWindow: NSObject {
 
     // MARK: - Constants
@@ -33,10 +41,27 @@ final class SuggestionWindow: NSObject {
         static let autoDismiss: TimeInterval = 8
     }
 
+    // MARK: - State
+
+    /// The edit list currently displayed.  Non-empty when the panel is visible.
+    private(set) var edits: [IMEEdit] = []
+
+    /// 0-based index of the currently highlighted edit (for Tab-accept and display).
+    private(set) var selectedIndex: Int = 0
+
     // MARK: - Internals
 
     private var panel: NSPanel?
+    private var hostingView: NSHostingView<SuggestionView>?
     private var dismissTask: DispatchWorkItem?
+
+    // MARK: - Callbacks (set by the controller before calling show)
+
+    /// Called with the `selectedIndex` when Tab is pressed and the panel is visible.
+    var onAccept: ((Int) -> Void)?
+
+    /// Called when Escape is pressed and the panel is visible.
+    var onDismiss: (() -> Void)?
 
     // MARK: - Public API
 
@@ -47,11 +72,14 @@ final class SuggestionWindow: NSObject {
 
         guard !edits.isEmpty else { return }
 
-        let content = SuggestionView(edits: edits)
-        let hostingView = NSHostingView(rootView: content)
-        hostingView.frame = NSRect(x: 0, y: 0,
-                                   width: Layout.panelWidth,
-                                   height: Layout.panelMaxHeight)
+        self.edits = edits
+        self.selectedIndex = 0
+
+        let content = SuggestionView(edits: edits, selectedIndex: 0)
+        let hv = NSHostingView(rootView: content)
+        hv.frame = NSRect(x: 0, y: 0,
+                          width: Layout.panelWidth,
+                          height: Layout.panelMaxHeight)
 
         let newPanel = NSPanel(
             contentRect: NSRect(x: 0, y: 0,
@@ -67,8 +95,8 @@ final class SuggestionWindow: NSObject {
         newPanel.backgroundColor = .clear
         newPanel.hasShadow = true
         newPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        newPanel.contentView = hostingView
-        newPanel.ignoresMouseEvents = false // allow future click-accept in Phase 6
+        newPanel.contentView = hv
+        newPanel.ignoresMouseEvents = false
 
         let origin = panelOrigin(caretRect: caretScreenRect,
                                  panelSize: NSSize(width: Layout.panelWidth,
@@ -77,6 +105,7 @@ final class SuggestionWindow: NSObject {
         newPanel.orderFront(nil)
 
         panel = newPanel
+        hostingView = hv
 
         // Schedule auto-dismiss
         let task = DispatchWorkItem { [weak self] in self?.hide() }
@@ -93,26 +122,55 @@ final class SuggestionWindow: NSObject {
         dismissTask = nil
         panel?.orderOut(nil)
         panel = nil
+        hostingView = nil
+        edits = []
+        selectedIndex = 0
     }
 
-    // MARK: - Tab / Escape stubs (Phase 6)
+    // MARK: - Key handling (called by didCommand in the controller)
 
-    /// Called by the controller's didCommand handler when Tab is pressed
-    /// while the suggestion panel is visible.  Accepting the suggestion is
-    /// implemented in Phase 6; for now we log and dismiss.
+    /// Tab pressed: accept the currently selected edit.
     func handleTabKey() {
-        NSLog("LingoPulseIME: user pressed Tab — suggestion accept stub (Phase 6)")
+        guard isVisible else { return }
+        let idx = selectedIndex
+        NSLog("LingoPulseIME: Tab — accepting edit[\(idx)]")
+        onAccept?(idx)
+        // The controller hides the panel after replacing text.
+    }
+
+    /// Escape pressed: dismiss suggestion and notify the controller.
+    func handleEscapeKey() {
+        guard isVisible else { return }
+        NSLog("LingoPulseIME: Esc — suggestion dismissed by user")
+        onDismiss?()
         hide()
     }
 
-    /// Called when Escape is pressed while the panel is visible.
-    func handleEscapeKey() {
-        NSLog("LingoPulseIME: user pressed Esc — suggestion dismissed")
-        hide()
+    /// Move selection down (↓): wraps from last to first.
+    func cycleDown() {
+        guard isVisible, !edits.isEmpty else { return }
+        selectedIndex = (selectedIndex + 1) % edits.count
+        updateView()
+        NSLog("LingoPulseIME: ↓ selectedIndex=\(selectedIndex)")
+    }
+
+    /// Move selection up (↑): wraps from first to last.
+    func cycleUp() {
+        guard isVisible, !edits.isEmpty else { return }
+        selectedIndex = (selectedIndex + edits.count - 1) % edits.count
+        updateView()
+        NSLog("LingoPulseIME: ↑ selectedIndex=\(selectedIndex)")
     }
 
     /// True when the panel is currently on screen.
     var isVisible: Bool { panel != nil }
+
+    // MARK: - Internal helpers
+
+    private func updateView() {
+        guard let hv = hostingView else { return }
+        hv.rootView = SuggestionView(edits: edits, selectedIndex: selectedIndex)
+    }
 
     // MARK: - Positioning
 
@@ -166,8 +224,9 @@ final class SuggestionWindow: NSObject {
 
 // MARK: - SuggestionView (SwiftUI)
 
-private struct SuggestionView: View {
+struct SuggestionView: View {
     let edits: [IMEEdit]
+    let selectedIndex: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -175,8 +234,8 @@ private struct SuggestionView: View {
             Divider().background(Color.white.opacity(0.2))
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(edits.enumerated()), id: \.offset) { _, edit in
-                        EditRow(edit: edit)
+                    ForEach(Array(edits.enumerated()), id: \.offset) { idx, edit in
+                        EditRow(edit: edit, isSelected: idx == selectedIndex)
                     }
                 }
                 .padding(.vertical, 10)
@@ -220,6 +279,7 @@ private struct SuggestionView: View {
 
 private struct EditRow: View {
     let edit: IMEEdit
+    let isSelected: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -235,7 +295,14 @@ private struct EditRow: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.secondary.opacity(0.07))
+                .fill(isSelected
+                      ? Color.accentColor.opacity(0.18)
+                      : Color.secondary.opacity(0.07))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isSelected ? Color.accentColor.opacity(0.5) : Color.clear,
+                        lineWidth: 1)
         )
     }
 
