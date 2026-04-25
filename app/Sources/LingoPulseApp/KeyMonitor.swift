@@ -67,7 +67,7 @@ final class KeyMonitor {
     }
 
     /// Called from the CGEventTap callback. Returns true if event should be consumed.
-    fileprivate func handle(keyCode: Int64) -> Bool {
+    func handle(keyCode: Int64) -> Bool {
         let tabKey: Int64 = 48
         let escKey: Int64 = 53
         let returnKey: Int64 = 36

@@ -12,5 +12,10 @@ let package = Package(
             name: "LingoPulseApp",
             path: "Sources/LingoPulseApp"
         ),
+        .testTarget(
+            name: "LingoPulseAppTests",
+            dependencies: ["LingoPulseApp"],
+            path: "Tests/LingoPulseAppTests"
+        ),
     ]
 )

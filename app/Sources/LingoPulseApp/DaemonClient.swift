@@ -154,7 +154,7 @@ final class DaemonClient {
     }
 }
 
-private enum Envelope<T: Decodable>: Decodable {
+enum Envelope<T: Decodable>: Decodable {
     case success(T)
     case failure(String)
 
