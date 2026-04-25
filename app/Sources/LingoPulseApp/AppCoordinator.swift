@@ -1,10 +1,80 @@
 import AppKit
+import ApplicationServices
 
 final class AppCoordinator {
     private let daemon: DaemonClient
+    private let liveObserver = AXLiveObserver()
+    private let debouncer = Debouncer(interval: 1.5)
+    private let chip = SuggestionChip()
+    private let keyMonitor = KeyMonitor()
+    private var inFlight = false
 
     init(daemon: DaemonClient) {
         self.daemon = daemon
+    }
+
+    func startLiveListener() {
+        liveObserver.onTextChange = { [weak self] text, app, element in
+            guard let self = self else { return }
+            self.debouncer.schedule {
+                self.handleDebouncedText(text: text, app: app, element: element)
+            }
+        }
+        liveObserver.start()
+    }
+
+    private func handleDebouncedText(text: String, app: String, element: AXUIElement) {
+        guard !inFlight else { return }
+        guard text.split(separator: " ").count >= 3 else { return }
+        inFlight = true
+        Task {
+            defer { Task { @MainActor in self.inFlight = false } }
+            do {
+                let resp = try await daemon.refine(selection: text, app: app, toneOverride: nil)
+                guard !resp.edits.isEmpty else { return }
+                await MainActor.run {
+                    self.showChip(edits: resp.edits, original: text, refined: resp.refined, app: app, element: element)
+                }
+            } catch {
+                NSLog("LingoPulse live: refine error \(error)")
+            }
+        }
+    }
+
+    private func showChip(edits: [Edit], original: String, refined: String, app: String, element: AXUIElement) {
+        chip.onAccept = { [weak self] _ in
+            self?.applyAndCleanup(refined: refined, original: original, app: app)
+        }
+        chip.onDismiss = { [weak self] in
+            self?.dismissAndFeedback(input: original, rejected: refined, app: app)
+        }
+        keyMonitor.onTab = { [weak self] in self?.chip.onAccept?(0) }
+        keyMonitor.onEsc = { [weak self] in self?.chip.onDismiss?() }
+        keyMonitor.onOtherKey = { [weak self] in
+            self?.chip.hide()
+            self?.keyMonitor.stop()
+        }
+        chip.show(edits: edits, near: element)
+        keyMonitor.start()
+    }
+
+    private func applyAndCleanup(refined: String, original: String, app: String) {
+        let isTerminal = ["iTerm2", "Terminal", "Alacritty", "WezTerm", "Hyper", "Warp"].contains(app)
+        if isTerminal {
+            pasteViaClipboard(refined)
+        } else if !AXClient.writeFocusedValue(refined) {
+            pasteViaClipboard(refined)
+        }
+        chip.hide()
+        keyMonitor.stop()
+    }
+
+    private func dismissAndFeedback(input: String, rejected: String, app: String) {
+        Task {
+            try? await daemon.feedback(input: input, rejected: rejected, reason: "other", app: app, tone: "", note: "dismissed via Esc")
+        }
+        chip.hide()
+        keyMonitor.stop()
     }
 
     func refineFocusedSelection() {

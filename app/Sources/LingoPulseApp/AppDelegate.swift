@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let coordinator = AppCoordinator(daemon: DaemonClient(baseURL: URL(string: "http://127.0.0.1:17823")!))
         self.coordinator = coordinator
 
+        coordinator.startLiveListener()
+
         self.menuBar = MenuBarController(coordinator: coordinator)
         self.hotkeys = HotkeyManager(coordinator: coordinator)
 
