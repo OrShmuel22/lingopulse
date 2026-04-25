@@ -20,3 +20,9 @@ extension/dist/
 # Benchmark run outputs (scenarios.json is tracked)
 benchmarks/*.json
 !benchmarks/scenarios.json
+
+# Swift app build artifacts
+app/.build/
+app/LingoPulse.app/
+app/.swiftpm/
+app/Package.resolved
