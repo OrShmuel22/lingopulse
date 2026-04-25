@@ -25,8 +25,12 @@ mkdir -p "$BUNDLE/Contents/Resources"
 cp "$BIN_PATH" "$BUNDLE/Contents/MacOS/LingoPulseIME"
 cp Resources/IMEInfo.plist "$BUNDLE/Contents/Info.plist"
 
-# Ad-hoc sign. A real distribution build would use a Developer ID.
-codesign --force --deep --sign - "$BUNDLE"
+# Ad-hoc sign with App Group entitlements so the bundle can access the shared
+# UserDefaults suite (group.com.lingopulse.shared).
+# A real distribution build would use a Developer ID certificate instead of '-'.
+codesign --force --deep --sign - \
+    --entitlements "$APP_DIR/Resources/LingoPulseIME.entitlements" \
+    "$BUNDLE"
 
 echo "==> Bundle: $APP_DIR/$BUNDLE"
 echo "Install:   cp -R '$APP_DIR/$BUNDLE' ~/Library/Input\ Methods/"

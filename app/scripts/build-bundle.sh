@@ -24,8 +24,11 @@ mkdir -p "$BUNDLE/Contents/Resources"
 cp "$BIN_PATH" "$BUNDLE/Contents/MacOS/LingoPulseApp"
 cp Resources/Info.plist "$BUNDLE/Contents/Info.plist"
 
-# Ad-hoc sign so AX permission persists across rebuilds.
-codesign --force --deep --sign - "$BUNDLE"
+# Ad-hoc sign with App Group entitlements so the main app can write to the
+# shared UserDefaults suite (group.com.lingopulse.shared) that the IME reads.
+codesign --force --deep --sign - \
+    --entitlements "$APP_DIR/Resources/LingoPulseApp.entitlements" \
+    "$BUNDLE"
 
 echo "==> Bundle: $APP_DIR/$BUNDLE"
 echo "Run with: open '$APP_DIR/$BUNDLE'"

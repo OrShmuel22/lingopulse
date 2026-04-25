@@ -6,7 +6,14 @@ import Carbon.HIToolbox
 final class Preferences: ObservableObject {
     static let shared = Preferences()
 
-    private let defaults = UserDefaults.standard
+    /// App Group suite shared with the LingoPulseIME bundle.
+    /// Falls back to UserDefaults.standard if the group container is unavailable
+    /// (e.g. during unit tests running outside a signed app context).
+    static let appGroupID = "group.com.lingopulse.shared"
+
+    private let defaults: UserDefaults = {
+        UserDefaults(suiteName: Preferences.appGroupID) ?? .standard
+    }()
 
     private enum Key {
         static let enabled = "lp.enabled"

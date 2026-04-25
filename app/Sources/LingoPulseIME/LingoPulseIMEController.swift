@@ -1,6 +1,7 @@
 import Foundation
 import InputMethodKit
 import AppKit
+import Carbon
 import LingoPulseIMECore
 
 // LingoPulseIMEController intercepts keystrokes via InputMethodKit's keybinding
@@ -38,6 +39,7 @@ final class LingoPulseIMEController: IMKInputController {
     private let debouncer = Debouncer(interval: 1.5)
     private let daemon = IMEDaemonClient()
     private let suggestionWindow = SuggestionWindow()
+    private let preferences = IMEPreferences()
     private var inFlight = false
 
     // The original text that produced the current suggestion set, and its length
@@ -252,8 +254,24 @@ final class LingoPulseIMEController: IMKInputController {
 
     private func requestRefine() {
         guard !inFlight, !session.isEmpty else { return }
+
+        // Skip refinement when the system is reading from a secure input field
+        // (e.g. password prompt). macOS suspends IMEs automatically in that case,
+        // but we add an explicit guard as a defence-in-depth measure so no
+        // partial buffer contents are sent to the daemon.
+        if IsSecureEventInputEnabled() {
+            NSLog("LingoPulseIME: secure input active — skipping refine")
+            return
+        }
+
         let snapshot = session.buffer
         let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
+
+        // Honour the user's per-app exclusion list (read from shared UserDefaults).
+        if preferences.excludedApps.contains(appName) {
+            NSLog("LingoPulseIME: \(appName) is excluded — skipping refine")
+            return
+        }
 
         // Capture caret rect before going async.
         let caretRect = caretScreenRect()
