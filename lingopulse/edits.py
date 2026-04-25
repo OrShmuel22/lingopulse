@@ -2,6 +2,58 @@ import difflib
 import re
 
 
+_HIGH_CONFIDENCE_CATEGORIES = {"plural", "apostrophe", "typo", "comparative", "capitalization"}
+_MEDIUM_CONFIDENCE_CATEGORIES = {"preposition", "calque"}
+_LOW_CONFIDENCE_CATEGORIES = {"structure", "grammar"}
+
+_RISKY_PATTERNS = [
+    ("im", "i've"),
+    ("im", "i'd"),
+    ("im", "i'll"),
+    ("ignore", "i ignored"),
+    ("check", "i checked"),
+    ("fix", "i fixed"),
+]
+
+
+def _classify_confidence(category: str) -> str:
+    if category in _HIGH_CONFIDENCE_CATEGORIES:
+        return "high"
+    if category in _MEDIUM_CONFIDENCE_CATEGORIES:
+        return "medium"
+    return "low"
+
+
+def _classify_risk(from_text: str, to_text: str, category: str) -> str:
+    """Return 'risky' if the edit might change meaning, else 'safe'."""
+    fl = from_text.lower().strip()
+    tl = to_text.lower().strip()
+
+    if fl in {"im", "i'm"} and tl.startswith(("i've", "i'd", "i'll", "i had", "i have")):
+        return "risky"
+
+    if not fl.startswith(("i ", "you ", "he ", "she ", "we ", "they ")) and tl.startswith(("i ", "you ", "he ", "she ", "we ", "they ")):
+        return "risky"
+
+    fl_has_aux = any(aux in fl.split() for aux in ["is", "are", "was", "were", "been"])
+    tl_has_aux = any(aux in tl.split() for aux in ["is", "are", "was", "were", "been"])
+    if fl_has_aux != tl_has_aux:
+        return "risky"
+
+    if len(fl.split()) >= 2 and len(tl.split()) >= 2:
+        if fl.split()[0] != tl.split()[0] and fl.split()[0] in {"ignore", "check", "fix", "do", "make", "block"} and tl.split()[0] in {"ignore", "check", "fix", "do", "make", "block"}:
+            return "risky"
+
+    for risky_from, risky_to in _RISKY_PATTERNS:
+        if risky_from in fl and risky_to in tl:
+            return "risky"
+
+    if category == "structure":
+        return "risky"
+
+    return "safe"
+
+
 _CALQUE_PATTERNS = {
     ("responsible", "on"): ("responsible", "for", "preposition", "Hebrew calque: 'responsible on' → 'responsible for'"),
     ("depend", "on"): None,
@@ -106,6 +158,8 @@ def compute_edits(original: str, refined: str) -> list[dict]:
             "to_span": [j1, j2],
             "category": category,
             "reason": reason,
+            "confidence": _classify_confidence(category),
+            "risk": _classify_risk(from_text, to_text, category),
         })
 
     return edits

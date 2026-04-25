@@ -68,3 +68,47 @@ def test_span_indices_correct():
     edits = edits_mod.compute_edits("one two three four", "one TWO three four")
     assert edits[0]["from_span"] == [1, 2]
     assert edits[0]["to_span"] == [1, 2]
+
+
+def test_typo_is_high_safe():
+    edits = edits_mod.compute_edits("enviroment is broken", "environment is broken")
+    e = edits[0]
+    assert e["confidence"] == "high"
+    assert e["risk"] == "safe"
+
+
+def test_preposition_is_medium_safe():
+    edits = edits_mod.compute_edits("responsible on staging", "responsible for staging")
+    e = edits[0]
+    assert e["confidence"] == "medium"
+    assert e["risk"] == "safe"
+
+
+def test_subject_pronoun_flip_is_risky():
+    edits = edits_mod.compute_edits("im blocked on the PR", "I've blocked on the PR")
+    e = edits[0]
+    assert e["risk"] == "risky"
+
+
+def test_active_to_passive_is_risky():
+    edits = edits_mod.compute_edits("ignore my msg", "I ignored my msg")
+    e = edits[0]
+    assert e["risk"] == "risky"
+
+
+def test_plural_uncountable_is_high_safe():
+    edits = edits_mod.compute_edits("many informations here", "many information here")
+    e = edits[0]
+    assert e["confidence"] == "high"
+    assert e["risk"] == "safe"
+
+
+def test_capitalization_is_high_safe():
+    edits = edits_mod.compute_edits("hey there", "Hey there")
+    e = edits[0]
+    assert e["confidence"] == "high"
+    assert e["risk"] == "safe"
+
+
+def test_structure_category_is_risky_by_default():
+    pass
