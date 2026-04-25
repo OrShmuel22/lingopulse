@@ -11,6 +11,7 @@ final class KeyMonitor {
     fileprivate var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var startedAt: Date?
+    private var retainedSelfPtr: UnsafeMutableRawPointer?
 
     /// Grace period after start during which non-Tab/Esc/arrow keystrokes don't dismiss.
     /// User typically pauses, chip appears, types one more char before deciding — that
@@ -22,7 +23,8 @@ final class KeyMonitor {
         guard tap == nil else { return }
 
         let mask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
-        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        let selfPtr = Unmanaged.passRetained(self).toOpaque()
+        self.retainedSelfPtr = selfPtr
 
         guard let eventTap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -33,6 +35,8 @@ final class KeyMonitor {
             userInfo: selfPtr
         ) else {
             Log.error("KeyMonitor: failed to create CGEventTap (Accessibility may be denied)")
+            Unmanaged<KeyMonitor>.fromOpaque(selfPtr).release()
+            self.retainedSelfPtr = nil
             return
         }
 
@@ -53,6 +57,10 @@ final class KeyMonitor {
         if let tap = tap {
             CGEvent.tapEnable(tap: tap, enable: false)
             self.tap = nil
+        }
+        if let ptr = retainedSelfPtr {
+            Unmanaged<KeyMonitor>.fromOpaque(ptr).release()
+            retainedSelfPtr = nil
         }
         startedAt = nil
         Log.debug("KeyMonitor: tap removed")

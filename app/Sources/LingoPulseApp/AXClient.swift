@@ -25,7 +25,10 @@ enum AXClient {
             Log.error("AX: focus read failed (err=\(focusedErr.rawValue)) — likely AX permission denied for this app or app blocks AX")
             return nil
         }
-        let element = focusedAny as! AXUIElement
+        guard let element = asAXUIElement(focusedAny) else {
+            Log.error("AX: focused element is not AXUIElement")
+            return nil
+        }
 
         var selectedRef: CFTypeRef?
         let selErr = AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &selectedRef)
@@ -50,17 +53,38 @@ enum AXClient {
         guard let app = NSWorkspace.shared.frontmostApplication else { return false }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         guard let focused = copyAttribute(appElement, kAXFocusedUIElementAttribute) else { return false }
-        let element = focused as! AXUIElement
+        guard let element = asAXUIElement(focused) else { return false }
 
         let cfText = text as CFString
         let setResult = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, cfText)
         return setResult == .success
     }
 
-    private static func copyAttribute(_ element: AXUIElement, _ attr: String) -> AnyObject? {
+    static func axPoint(from ref: CFTypeRef?) -> CGPoint? {
+        guard let ref = ref, CFGetTypeID(ref) == AXValueGetTypeID() else { return nil }
+        let value = ref as! AXValue
+        var point = CGPoint.zero
+        guard AXValueGetValue(value, .cgPoint, &point) else { return nil }
+        return point
+    }
+
+    static func axSize(from ref: CFTypeRef?) -> CGSize? {
+        guard let ref = ref, CFGetTypeID(ref) == AXValueGetTypeID() else { return nil }
+        let value = ref as! AXValue
+        var size = CGSize.zero
+        guard AXValueGetValue(value, .cgSize, &size) else { return nil }
+        return size
+    }
+
+    static func asAXUIElement(_ ref: CFTypeRef?) -> AXUIElement? {
+        guard let ref = ref, CFGetTypeID(ref) == AXUIElementGetTypeID() else { return nil }
+        return (ref as! AXUIElement)
+    }
+
+    private static func copyAttribute(_ element: AXUIElement, _ attr: String) -> CFTypeRef? {
         var ref: CFTypeRef?
         let err = AXUIElementCopyAttributeValue(element, attr as CFString, &ref)
         guard err == .success else { return nil }
-        return ref as AnyObject?
+        return ref
     }
 }

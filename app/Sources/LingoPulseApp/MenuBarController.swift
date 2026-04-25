@@ -35,15 +35,15 @@ final class MenuBarController: NSObject {
         statusItem.menu = menu
     }
 
-    @objc private func refineNow() {
+    @MainActor @objc private func refineNow() {
         coordinator.refineFocusedSelection()
     }
 
-    @objc private func checkStatus() {
+    @MainActor @objc private func checkStatus() {
         coordinator.fetchStatusAndShowAlert()
     }
 
-    @objc private func openPersonalDict() {
+    @MainActor @objc private func openPersonalDict() {
         if personalDictWindow == nil {
             personalDictWindow = PersonalDictWindowController(daemon: coordinator.daemonClient)
         }
@@ -51,7 +51,7 @@ final class MenuBarController: NSObject {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    @objc private func openSettings() {
+    @MainActor @objc private func openSettings() {
         if settingsWindow == nil {
             settingsWindow = SettingsWindowController(daemon: coordinator.daemonClient)
         }

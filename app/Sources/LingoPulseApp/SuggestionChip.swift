@@ -6,6 +6,7 @@ final class SuggestionChip {
     private var window: NSPanel?
     private var hostingController: NSHostingController<ChipView>?
     private var dismissTimer: Timer?
+    private var pendingShowElement: AXUIElement?
 
     var originalText: String = ""
     var refinedText: String = ""
@@ -27,7 +28,15 @@ final class SuggestionChip {
     @MainActor func show(near element: AXUIElement?) {
         guard !allEdits.isEmpty else { return }
 
-        hide()
+        if window != nil {
+            pendingShowElement = element
+            hide { [weak self] in
+                guard let self = self, let pendingEl = self.pendingShowElement else { return }
+                self.pendingShowElement = nil
+                self.show(near: pendingEl)
+            }
+            return
+        }
 
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 360, height: 80),
@@ -45,7 +54,8 @@ final class SuggestionChip {
 
         let chipView = makeChipView()
         let hc = NSHostingController(rootView: chipView)
-        hc.view.frame = panel.contentView!.bounds
+        guard let contentBounds = panel.contentView?.bounds else { return }
+        hc.view.frame = contentBounds
         hc.view.autoresizingMask = [.width, .height]
         hc.view.layer?.backgroundColor = .clear
         panel.contentView?.addSubview(hc.view)
@@ -99,10 +109,10 @@ final class SuggestionChip {
         rerender()
     }
 
-    func hide() {
+    func hide(completion: (() -> Void)? = nil) {
         dismissTimer?.invalidate()
         dismissTimer = nil
-        guard let window = window else { return }
+        guard let window = window else { completion?(); return }
         self.window = nil
         self.hostingController = nil
         NSAnimationContext.runAnimationGroup({ ctx in
@@ -111,6 +121,7 @@ final class SuggestionChip {
             window.animator().alphaValue = 0
         }, completionHandler: {
             window.orderOut(nil)
+            completion?()
         })
     }
 
@@ -145,14 +156,8 @@ final class SuggestionChip {
         AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posValue)
         AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue)
 
-        guard let pv = posValue, let sv = sizeValue else {
-            return fallbackOrigin(panelSize: panelSize)
-        }
-
-        var axTopLeft = CGPoint.zero
-        var size = CGSize.zero
-        guard AXValueGetValue(pv as! AXValue, .cgPoint, &axTopLeft),
-              AXValueGetValue(sv as! AXValue, .cgSize, &size) else {
+        guard let axTopLeft = AXClient.axPoint(from: posValue),
+              let size = AXClient.axSize(from: sizeValue) else {
             return fallbackOrigin(panelSize: panelSize)
         }
 
@@ -184,7 +189,6 @@ final class SuggestionChip {
     }
 
     private func fallbackOrigin(panelSize: CGSize) -> CGPoint {
-        // Top-right of screen, 16pt from edges. Predictable, never near user's caret.
         guard let screen = NSScreen.main else { return CGPoint(x: 100, y: 100) }
         return CGPoint(
             x: screen.frame.maxX - panelSize.width - 16,

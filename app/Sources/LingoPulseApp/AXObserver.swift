@@ -8,9 +8,11 @@ final class AXLiveObserver {
 
     private var axObserver: ApplicationServices.AXObserver?
     private var observedPID: pid_t = 0
+    private var observedAppElement: AXUIElement?
     private var focusedElement: AXUIElement?
     private var currentAppName: String = ""
     private var appActivationObserver: NSObjectProtocol?
+    private var trustPollTimer: Timer?
 
     func start() {
         appActivationObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -22,12 +24,18 @@ final class AXLiveObserver {
             self?.attachToApp(app)
         }
 
-        if let frontmost = NSWorkspace.shared.frontmostApplication {
-            attachToApp(frontmost)
+        if AXIsProcessTrusted() {
+            if let frontmost = NSWorkspace.shared.frontmostApplication {
+                attachToApp(frontmost)
+            }
+        } else {
+            startTrustPolling()
         }
     }
 
     func stop() {
+        trustPollTimer?.invalidate()
+        trustPollTimer = nil
         detachCurrent()
         if let obs = appActivationObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(obs)
@@ -37,6 +45,20 @@ final class AXLiveObserver {
 
     deinit {
         stop()
+    }
+
+    private func startTrustPolling() {
+        guard trustPollTimer == nil else { return }
+        trustPollTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] timer in
+            guard let self = self else { return }
+            if AXIsProcessTrusted() {
+                timer.invalidate()
+                self.trustPollTimer = nil
+                if let frontmost = NSWorkspace.shared.frontmostApplication {
+                    self.attachToApp(frontmost)
+                }
+            }
+        }
     }
 
     private func attachToApp(_ app: NSRunningApplication) {
@@ -65,6 +87,7 @@ final class AXLiveObserver {
         observedPID = pid
 
         let appElement = AXUIElementCreateApplication(pid)
+        observedAppElement = appElement
         AXObserverAddNotification(observer, appElement, kAXFocusedUIElementChangedNotification as CFString, selfPtr)
 
         // Subscribe to value changes on the currently focused element. Without this,
@@ -72,8 +95,8 @@ final class AXLiveObserver {
         // because kAXFocusedUIElementChangedNotification only fires on focus *changes*.
         var currentFocused: CFTypeRef?
         let focusErr = AXUIElementCopyAttributeValue(appElement, kAXFocusedUIElementAttribute as CFString, &currentFocused)
-        if focusErr == .success, let focusedAny = currentFocused {
-            let element = focusedAny as! AXUIElement
+        if focusErr == .success, let focusedAny = currentFocused,
+           let element = AXClient.asAXUIElement(focusedAny) {
             focusedElement = element
             AXObserverAddNotification(observer, element, kAXValueChangedNotification as CFString, selfPtr)
             Log.debug("AX: subscribed to value changes on initial focused element of \(appName)")
@@ -88,14 +111,14 @@ final class AXLiveObserver {
     private func detachCurrent() {
         guard let observer = axObserver else { return }
         CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
-        if observedPID != 0 {
-            let appElement = AXUIElementCreateApplication(observedPID)
+        if let appElement = observedAppElement {
             AXObserverRemoveNotification(observer, appElement, kAXFocusedUIElementChangedNotification as CFString)
             if let element = focusedElement {
                 AXObserverRemoveNotification(observer, element, kAXValueChangedNotification as CFString)
             }
         }
         axObserver = nil
+        observedAppElement = nil
         focusedElement = nil
         observedPID = 0
     }
@@ -106,11 +129,11 @@ final class AXLiveObserver {
         guard let observer = axObserver else { return }
 
         if notification == kAXFocusedUIElementChangedNotification {
+            let selfPtr = Unmanaged.passUnretained(self).toOpaque()
             if let oldElement = focusedElement {
                 AXObserverRemoveNotification(observer, oldElement, kAXValueChangedNotification as CFString)
             }
             focusedElement = element
-            let selfPtr = Unmanaged.passUnretained(self).toOpaque()
             AXObserverAddNotification(observer, element, kAXValueChangedNotification as CFString, selfPtr)
         } else if notification == kAXValueChangedNotification {
             let (enabled, excluded) = MainActor.assumeIsolated {

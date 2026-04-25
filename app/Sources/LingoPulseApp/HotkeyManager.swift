@@ -46,7 +46,7 @@ final class HotkeyManager {
                 nil,
                 &hkID
             )
-            DispatchQueue.main.async { HotkeyManager.instance?.coordinator.refineFocusedSelection() }
+            Task { @MainActor in HotkeyManager.instance?.coordinator.refineFocusedSelection() }
             return noErr
         }
         InstallEventHandler(GetApplicationEventTarget(), cb, 1, &spec, nil, &handlerRef)

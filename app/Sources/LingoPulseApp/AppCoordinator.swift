@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 
+@MainActor
 final class AppCoordinator {
     private(set) var daemon: DaemonClient
     var daemonClient: DaemonClient { daemon }
@@ -20,7 +21,9 @@ final class AppCoordinator {
         liveObserver.onTextChange = { [weak self] text, app, element in
             guard let self = self else { return }
             self.debouncer.schedule {
-                self.handleDebouncedText(text: text, app: app, element: element)
+                Task { @MainActor in
+                    self.handleDebouncedText(text: text, app: app, element: element)
+                }
             }
         }
         liveObserver.start()
@@ -42,27 +45,25 @@ final class AppCoordinator {
         guard !inFlight else { return }
         guard text.split(separator: " ").count >= 3 else { return }
         inFlight = true
-        Task {
-            defer { Task { @MainActor in self.inFlight = false } }
+        Task { @MainActor in
+            defer { self.inFlight = false }
             do {
                 let start = Date()
                 let resp = try await daemon.refine(selection: text, app: app, toneOverride: nil)
                 let elapsed = Date().timeIntervalSince(start)
                 if elapsed > 2.0 {
-                    await MainActor.run { self.showColdStartNotice() }
+                    self.showColdStartNotice()
                 }
                 guard !resp.edits.isEmpty else { return }
-                await MainActor.run {
-                    self.showChip(edits: resp.edits, original: text, refined: resp.refined, app: app, element: element)
-                }
+                self.showChip(edits: resp.edits, original: text, refined: resp.refined, app: app, element: element)
             } catch {
                 Log.error("live: refine error \(error)")
-                await MainActor.run { self.showDaemonDownIfFresh() }
+                self.showDaemonDownIfFresh()
             }
         }
     }
 
-    @MainActor private func showColdStartNotice() {
+    private func showColdStartNotice() {
         guard !coldStartShown else { return }
         coldStartShown = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
@@ -71,13 +72,13 @@ final class AppCoordinator {
         Notifications.show(title: "LingoPulse", body: "Warming up gemma3 — next refine will be fast.")
     }
 
-    @MainActor private func showDaemonDownIfFresh() {
+    private func showDaemonDownIfFresh() {
         if let last = lastDaemonDownNotice, Date().timeIntervalSince(last) < 60 { return }
         lastDaemonDownNotice = Date()
         Notifications.show(title: "LingoPulse", body: "Daemon unreachable. Check launchctl list | grep lingopulse.")
     }
 
-    @MainActor private func showChip(edits: [Edit], original: String, refined: String, app: String, element: AXUIElement) {
+    private func showChip(edits: [Edit], original: String, refined: String, app: String, element: AXUIElement) {
         chip.configure(edits: edits, original: original, refined: refined)
         chip.currentApp = app
         chip.onNeverFix = { [weak self] token, scope in
@@ -118,7 +119,7 @@ final class AppCoordinator {
                 acceptedIndices: Array(chip.acceptedIndices)
             )
             if isLast {
-                await MainActor.run { self.applyFinalAndCleanup(text: response.result, app: app) }
+                self.applyFinalAndCleanup(text: response.result, app: app)
             }
         } catch {
             Log.error("apply_edits error \(error)")
@@ -161,13 +162,13 @@ final class AppCoordinator {
         }
         Log.info("refining \(text.count) chars from \(app)")
 
-        Task {
+        Task { @MainActor in
             do {
                 let start = Date()
                 let resp = try await daemon.refine(selection: text, app: app, toneOverride: nil)
                 let elapsed = Date().timeIntervalSince(start)
                 if elapsed > 2.0 {
-                    await MainActor.run { self.showColdStartNotice() }
+                    self.showColdStartNotice()
                 }
                 Log.info("\(resp.edits.count) edits returned")
                 Log.debug("  ORIGINAL: \(resp.original)")
@@ -178,30 +179,28 @@ final class AppCoordinator {
                 let isTerminal = ["iTerm2", "Terminal", "Alacritty", "WezTerm", "Hyper", "Warp"].contains(app)
                 if isTerminal {
                     Log.info("\(app) is a terminal — copying to clipboard (AX write unreliable)")
-                    pasteViaClipboard(resp.refined)
+                    self.pasteViaClipboard(resp.refined)
                 } else if AXClient.writeFocusedValue(resp.refined) {
                     Log.info("pasted via AX write")
                 } else {
                     Log.info("AX write failed, copying to clipboard")
-                    pasteViaClipboard(resp.refined)
+                    self.pasteViaClipboard(resp.refined)
                 }
             } catch DaemonError.http(409) {
                 Log.info("busy (another refine in flight) — try again in a moment")
             } catch {
                 Log.error("refine error: \(error)")
-                await MainActor.run { self.showDaemonDownIfFresh() }
+                self.showDaemonDownIfFresh()
             }
         }
     }
 
     func fetchStatusAndShowAlert() {
-        Task {
+        Task { @MainActor in
             do {
                 let s = try await daemon.status()
                 Log.info("status: model=\(s.model) loaded=\(s.model_loaded)")
-                await MainActor.run {
-                    showToast(title: "Daemon", body: "model=\(s.model) loaded=\(s.model_loaded)")
-                }
+                self.showToast(title: "Daemon", body: "model=\(s.model) loaded=\(s.model_loaded)")
             } catch {
                 Log.error("status error: \(error)")
             }
