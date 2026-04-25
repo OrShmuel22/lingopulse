@@ -6,6 +6,8 @@ updated: 2026-04-24
 depends_on: [fixer-robustness.md]
 ---
 
+> Status: DEFERRED — revisit when triggers below fire (see section)
+
 # Style Memory — v1.1 plan
 
 v1 ships without style memory in the prompt. The capture infrastructure is live: ⌘⌥M writes `{"mode":"style_example"}` entries to `history.jsonl`, and preview-mode refinements can log `user_edited` events.

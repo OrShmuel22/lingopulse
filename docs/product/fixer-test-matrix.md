@@ -5,6 +5,8 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
+> Status: STUB — fill after manual QA pass
+
 # Fixer — App Compatibility Matrix
 
 Does Refine + Undo + Preview + Tone picker + Dictionary work correctly in each target app?

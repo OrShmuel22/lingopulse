@@ -5,6 +5,8 @@ created: 2026-04-24
 updated: 2026-04-24
 ---
 
+> Status: STUB — fill after 1 week of real use
+
 # Fixer — Latency Benchmarks
 
 Measured end-to-end wall-clock time from `Cmd+Opt+E` press to pasted refinement.
