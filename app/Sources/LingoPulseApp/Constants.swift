@@ -10,7 +10,6 @@ enum Constants {
         static let keyGracePeriodSeconds: TimeInterval = 0.6
         static let coldStartThresholdSeconds: TimeInterval = 2.0
         static let notificationCooldownSeconds: TimeInterval = 60.0
-        static let axTrustPollSeconds: TimeInterval = 5.0
         static let affirmationDismissSeconds: TimeInterval = 1.5
     }
     enum Layout {

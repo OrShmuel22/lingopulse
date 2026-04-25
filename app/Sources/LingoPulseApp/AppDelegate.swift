@@ -36,10 +36,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         self.coordinator = coordinator
 
-        if prefs.enabled {
-            coordinator.startLiveListener()
-        }
-
         self.menuBar = MenuBarController(coordinator: coordinator)
         self.hotkeys = HotkeyManager(
             coordinator: coordinator,
@@ -79,17 +75,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { newURL in
                 if let u = URL(string: newURL) {
                     coordinator.updateDaemonURL(u)
-                }
-            }
-            .store(in: &prefsObservers)
-
-        prefs.$enabled
-            .dropFirst()
-            .sink { enabled in
-                if enabled {
-                    coordinator.startLiveListener()
-                } else {
-                    coordinator.stopLiveListener()
                 }
             }
             .store(in: &prefsObservers)

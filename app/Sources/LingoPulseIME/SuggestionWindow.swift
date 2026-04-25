@@ -39,6 +39,8 @@ final class SuggestionWindow: NSObject {
 
     private enum Timing {
         static let autoDismiss: TimeInterval = 8
+        static let fadeIn: TimeInterval = 0.15
+        static let fadeOut: TimeInterval = 0.10
     }
 
     // MARK: - State
@@ -102,7 +104,15 @@ final class SuggestionWindow: NSObject {
                                  panelSize: NSSize(width: Layout.panelWidth,
                                                    height: Layout.panelMaxHeight))
         newPanel.setFrameOrigin(origin)
+
+        // Fade in
+        newPanel.alphaValue = 0
         newPanel.orderFront(nil)
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = Timing.fadeIn
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            newPanel.animator().alphaValue = 1.0
+        }
 
         panel = newPanel
         hostingView = hv
@@ -113,18 +123,25 @@ final class SuggestionWindow: NSObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + Timing.autoDismiss,
                                       execute: task)
 
-        NSLog("LingoPulseIME: SuggestionWindow shown (\(edits.count) edit(s)) at \(origin)")
+        IMELog.info("SuggestionWindow shown (\(edits.count) edit(s)) at \(origin)")
     }
 
     /// Hide and tear down the panel immediately.
     func hide() {
         dismissTask?.cancel()
         dismissTask = nil
-        panel?.orderOut(nil)
-        panel = nil
-        hostingView = nil
         edits = []
         selectedIndex = 0
+        guard let dyingPanel = panel else { return }
+        panel = nil
+        hostingView = nil
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = Timing.fadeOut
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            dyingPanel.animator().alphaValue = 0
+        }, completionHandler: {
+            dyingPanel.orderOut(nil)
+        })
     }
 
     // MARK: - Key handling (called by didCommand in the controller)
@@ -133,7 +150,7 @@ final class SuggestionWindow: NSObject {
     func handleTabKey() {
         guard isVisible else { return }
         let idx = selectedIndex
-        NSLog("LingoPulseIME: Tab — accepting edit[\(idx)]")
+        IMELog.info("Tab — accepting edit[\(idx)]")
         onAccept?(idx)
         // The controller hides the panel after replacing text.
     }
@@ -141,7 +158,7 @@ final class SuggestionWindow: NSObject {
     /// Escape pressed: dismiss suggestion and notify the controller.
     func handleEscapeKey() {
         guard isVisible else { return }
-        NSLog("LingoPulseIME: Esc — suggestion dismissed by user")
+        IMELog.info("Esc — suggestion dismissed by user")
         onDismiss?()
         hide()
     }
@@ -151,7 +168,7 @@ final class SuggestionWindow: NSObject {
         guard isVisible, !edits.isEmpty else { return }
         selectedIndex = (selectedIndex + 1) % edits.count
         updateView()
-        NSLog("LingoPulseIME: ↓ selectedIndex=\(selectedIndex)")
+        IMELog.info("↓ selectedIndex=\(selectedIndex)")
     }
 
     /// Move selection up (↑): wraps from first to last.
@@ -159,7 +176,7 @@ final class SuggestionWindow: NSObject {
         guard isVisible, !edits.isEmpty else { return }
         selectedIndex = (selectedIndex + edits.count - 1) % edits.count
         updateView()
-        NSLog("LingoPulseIME: ↑ selectedIndex=\(selectedIndex)")
+        IMELog.info("↑ selectedIndex=\(selectedIndex)")
     }
 
     /// True when the panel is currently on screen.
@@ -284,10 +301,14 @@ private struct EditRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .top, spacing: 6) {
-                confidenceDot
+                confidenceBadge
                 VStack(alignment: .leading, spacing: 3) {
                     textDiff
                     reasonLabel
+                }
+                Spacer()
+                if edit.risk == "risky" {
+                    riskPill
                 }
             }
         }
@@ -301,24 +322,38 @@ private struct EditRow: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(isSelected ? Color.accentColor.opacity(0.5) : Color.clear,
-                        lineWidth: 1)
+                .stroke(strokeColor, lineWidth: isSelected ? 2.5 : (edit.risk == "risky" ? 1.5 : 0))
         )
     }
 
-    private var confidenceDot: some View {
-        Circle()
-            .fill(dotColor)
-            .frame(width: 8, height: 8)
-            .padding(.top, 4)
+    private var strokeColor: Color {
+        if isSelected { return Color.accentColor }
+        if edit.risk == "risky" { return Color.red }
+        return Color.clear
     }
 
-    private var dotColor: Color {
-        switch edit.confidence {
-        case "high":   return .green
-        case "medium": return .orange
-        default:       return .red
+    private var confidenceBadge: some View {
+        Group {
+            switch edit.confidence {
+            case "high":
+                Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
+            case "medium":
+                Image(systemName: "questionmark.circle").foregroundStyle(.orange)
+            default:
+                Image(systemName: "exclamationmark.triangle").foregroundStyle(.red)
+            }
         }
+        .font(.system(size: 14))
+        .padding(.top, 2)
+    }
+
+    private var riskPill: some View {
+        Text("REVIEW")
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: 4).fill(.red))
     }
 
     private var textDiff: some View {

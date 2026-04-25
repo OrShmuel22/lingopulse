@@ -1,15 +1,17 @@
 ---
 title: Raycast Extension Migration (v2)
-status: DECIDED — ready for /dev
+status: HISTORICAL
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-04-25
 supersedes: [scripts/raycast/*.py v1]
 ---
 
 # Raycast Extension Migration (v2)
 
-> **Status:** DECIDED — ready for `/dev`
-> **Created:** 2026-04-24 | **Updated:** 2026-04-24
+> Status: HISTORICAL — IME supersedes Raycast for live mode
+
+> **Status:** HISTORICAL
+> **Created:** 2026-04-24 | **Updated:** 2026-04-25
 
 ## The Real Problem
 

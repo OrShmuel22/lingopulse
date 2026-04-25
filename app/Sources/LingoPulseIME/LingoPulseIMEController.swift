@@ -220,7 +220,7 @@ final class LingoPulseIMEController: IMKInputController {
     /// what NSTextView / WebKit / etc. use internally.
     private func replaceBuffer(with replacement: String) {
         guard let textClient = client() as? (IMKTextInput & NSObject) else {
-            NSLog("LingoPulseIME: replaceBuffer — no IMKTextInput client, skipping")
+            IMELog.error("replaceBuffer — no IMKTextInput client, skipping")
             return
         }
 
@@ -238,20 +238,20 @@ final class LingoPulseIMEController: IMKInputController {
             // that means "replace the current selection / cursor" in IMK.
             // This inserts at cursor without deleting anything, which is wrong for
             // our replacement use case.  Log and bail.
-            NSLog("LingoPulseIME: replaceBuffer — selectedRange returned NSNotFound, skipping")
+            IMELog.error("replaceBuffer — selectedRange returned NSNotFound, skipping")
             return
         } else {
             cursor = sel.location + sel.length  // end of selection (= insertion point)
         }
 
         guard cursor >= len else {
-            NSLog("LingoPulseIME: replaceBuffer — cursor(\(cursor)) < bufferLen(\(len)), skipping")
+            IMELog.error("replaceBuffer — cursor(\(cursor)) < bufferLen(\(len)), skipping")
             return
         }
 
         let replRange = NSRange(location: cursor - len, length: len)
         textClient.insertText(replacement, replacementRange: replRange)
-        NSLog("LingoPulseIME: replaced range \(replRange) with \"\(replacement)\"")
+        IMELog.info("replaced range \(replRange) with \"\(replacement)\"")
     }
 
     // MARK: - Daemon
@@ -264,7 +264,7 @@ final class LingoPulseIMEController: IMKInputController {
         // but we add an explicit guard as a defence-in-depth measure so no
         // partial buffer contents are sent to the daemon.
         if IsSecureEventInputEnabled() {
-            NSLog("LingoPulseIME: secure input active — skipping refine")
+            IMELog.debug("secure input active — skipping refine")
             return
         }
 
@@ -273,7 +273,7 @@ final class LingoPulseIMEController: IMKInputController {
 
         // Honour the user's per-app exclusion list (read from shared UserDefaults).
         if preferences.excludedApps.contains(appName) {
-            NSLog("LingoPulseIME: \(appName) is excluded — skipping refine")
+            IMELog.debug("\(appName) is excluded — skipping refine")
             return
         }
 
@@ -285,7 +285,7 @@ final class LingoPulseIMEController: IMKInputController {
             defer { self.inFlight = false }
             do {
                 let resp = try await self.daemon.refine(text: snapshot, app: appName)
-                NSLog("LingoPulseIME: refine → \(resp.edits.count) edits, refined=\(resp.refined.suffix(60))")
+                IMELog.info("refine → \(resp.edits.count) edits, refined=\(String(resp.refined.suffix(60)))")
                 if !resp.edits.isEmpty {
                     // Store the context needed to perform replacement.
                     self.originalText = snapshot
@@ -293,7 +293,7 @@ final class LingoPulseIMEController: IMKInputController {
                     self.suggestionWindow.show(edits: resp.edits, caretScreenRect: caretRect)
                 }
             } catch {
-                NSLog("LingoPulseIME: refine error \(error)")
+                IMELog.error("refine error \(error)")
             }
         }
     }
@@ -346,8 +346,7 @@ final class LingoPulseIMEController: IMKInputController {
             imeNote = "NO (policy: \(policyString))"
         }
 
-        NSLog("LingoPulseIME [AppDiag]: active app: %@ (%@) | policy: %@ | IME input likely: %@",
-              name, bundleID, policyString, imeNote)
+        IMELog.debug("[AppDiag] active app: \(name) (\(bundleID)) | policy: \(policyString) | IME input likely: \(imeNote)")
     }
 
     deinit {

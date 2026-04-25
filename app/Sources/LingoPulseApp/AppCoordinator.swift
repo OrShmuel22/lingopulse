@@ -8,7 +8,6 @@ final class AppCoordinator {
     private let pipeline: SuggestionPipelining
     private let reviewPresenter: ReviewPresenting
     private let toast = AffirmationToast()
-    private let debouncer: Debouncer
     private var coldStartShown: Date?
     private var lastDaemonDownNotice: Date?
     private var currentRefineTask: Task<Void, Never>?
@@ -19,26 +18,9 @@ final class AppCoordinator {
         self.accessibility = accessibility
         self.pipeline = pipeline
         self.reviewPresenter = reviewPresenter
-        self.debouncer = Debouncer(interval: Constants.Timing.debounceSeconds)
     }
 
     func updateDaemonURL(_ url: URL) { Log.info("daemon URL updated to \(url) — restart app to apply") }
-
-    func startLiveListener() {
-        accessibility.startListening { [weak self] selection in
-            self?.debouncer.schedule {
-                Task { @MainActor in self?.handleSelection(selection, manual: false) }
-            }
-        }
-    }
-
-    func stopLiveListener() {
-        accessibility.stopListening()
-        debouncer.cancel()
-        reviewPresenter.dismiss()
-        pipeline.cancelInFlight()
-        currentRefineTask?.cancel()
-    }
 
     func refineFocusedSelection() {
         guard let selection = accessibility.readSelection() else {
