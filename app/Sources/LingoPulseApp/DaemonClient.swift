@@ -41,6 +41,18 @@ struct ApplyEditsResponse: Decodable {
     let result: String
 }
 
+struct PersonalDictListResponse: Decodable {
+    let tokens: [PersonalDictEntry]
+}
+
+struct PersonalDictAddResponse: Decodable {
+    let entry: PersonalDictEntry
+}
+
+struct PersonalDictRemoveResponse: Decodable {
+    let removed: Int
+}
+
 enum DaemonError: Error {
     case http(Int)
     case payload(String)
@@ -86,6 +98,20 @@ final class DaemonClient {
             "refined": refined,
             "accepted_indices": acceptedIndices,
         ])
+    }
+
+    func listPersonalDict() async throws -> PersonalDictListResponse {
+        try await get(path: "/personal_dict")
+    }
+
+    func addPersonalDictEntry(token: String, scope: String) async throws -> PersonalDictAddResponse {
+        try await post(path: "/personal_dict", body: ["token": token, "scope": scope])
+    }
+
+    func removePersonalDictEntry(token: String, scope: String?) async throws -> PersonalDictRemoveResponse {
+        var body: [String: Any] = ["token": token]
+        if let s = scope { body["scope"] = s }
+        return try await post(path: "/personal_dict/remove", body: body)
     }
 
     // MARK: - core HTTP

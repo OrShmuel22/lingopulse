@@ -2,7 +2,8 @@ import AppKit
 import ApplicationServices
 
 final class AppCoordinator {
-    private let daemon: DaemonClient
+    let daemon: DaemonClient
+    var daemonClient: DaemonClient { daemon }
     private let liveObserver = AXLiveObserver()
     private let debouncer = Debouncer(interval: 1.5)
     private let chip = SuggestionChip()
@@ -43,6 +44,13 @@ final class AppCoordinator {
 
     private func showChip(edits: [Edit], original: String, refined: String, app: String, element: AXUIElement) {
         chip.configure(edits: edits, original: original, refined: refined)
+        chip.currentApp = app
+        chip.onNeverFix = { [weak self] token, scope in
+            Task {
+                try? await self?.daemon.addPersonalDictEntry(token: token, scope: scope)
+                NSLog("LingoPulse: never-fix added \(token) scope=\(scope)")
+            }
+        }
         chip.show(near: element)
 
         keyMonitor.onTab = { [weak self] in

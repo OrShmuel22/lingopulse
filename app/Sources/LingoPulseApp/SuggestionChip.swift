@@ -13,6 +13,8 @@ final class SuggestionChip {
     private(set) var currentIndex: Int = 0
     private(set) var allEdits: [Edit] = []
     var dismissedCount: Int { allEdits.count - acceptedIndices.count }
+    var onNeverFix: ((String, String) -> Void)?
+    var currentApp: String?
 
     func configure(edits: [Edit], original: String, refined: String) {
         allEdits = edits
@@ -101,7 +103,7 @@ final class SuggestionChip {
     private func makeChipView(origin: CGPoint, panel: NSPanel) -> ChipView {
         let edit = allEdits[currentIndex]
         let countLabel: String? = allEdits.count > 1 ? "\(currentIndex + 1) of \(allEdits.count)" : nil
-        return ChipView(edit: edit, countLabel: countLabel)
+        return ChipView(edit: edit, countLabel: countLabel, onNeverFix: onNeverFix, currentApp: currentApp)
     }
 
     private func sizePanel(_ panel: NSPanel, hc: NSHostingController<ChipView>) {
@@ -140,13 +142,25 @@ final class SuggestionChip {
 struct ChipView: View {
     let edit: Edit
     let countLabel: String?
+    let onNeverFix: ((String, String) -> Void)?
+    let currentApp: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Text(edit.from_text)
                     .strikethrough()
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
+                    .contextMenu {
+                        Button("Never fix '\(edit.from_text)' anywhere") {
+                            onNeverFix?(edit.from_text, "*")
+                        }
+                        if let app = currentApp, !app.isEmpty {
+                            Button("Never fix '\(edit.from_text)' in \(app)") {
+                                onNeverFix?(edit.from_text, app)
+                            }
+                        }
+                    }
                 Text("→")
                     .foregroundColor(.secondary)
                 Text(edit.to_text)

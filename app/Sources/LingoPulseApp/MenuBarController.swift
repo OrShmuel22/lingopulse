@@ -3,6 +3,7 @@ import AppKit
 final class MenuBarController: NSObject {
     private let statusItem: NSStatusItem
     private let coordinator: AppCoordinator
+    private var personalDictWindow: PersonalDictWindowController?
 
     init(coordinator: AppCoordinator) {
         self.coordinator = coordinator
@@ -22,6 +23,8 @@ final class MenuBarController: NSObject {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Daemon Status…", action: #selector(checkStatus), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "Personal Dictionary…", action: #selector(openPersonalDict), keyEquivalent: "d"))
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit LingoPulse", action: #selector(quit), keyEquivalent: "q"))
 
         for item in menu.items {
@@ -36,6 +39,14 @@ final class MenuBarController: NSObject {
 
     @objc private func checkStatus() {
         coordinator.fetchStatusAndShowAlert()
+    }
+
+    @objc private func openPersonalDict() {
+        if personalDictWindow == nil {
+            personalDictWindow = PersonalDictWindowController(daemon: coordinator.daemonClient)
+        }
+        personalDictWindow?.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc private func quit() {
