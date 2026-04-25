@@ -25,6 +25,7 @@ let package = Package(
             linkerSettings: [
                 .linkedFramework("InputMethodKit"),
                 .linkedFramework("AppKit"),
+                .linkedFramework("SwiftUI"),
             ]
         ),
         .testTarget(

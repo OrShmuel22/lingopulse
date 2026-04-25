@@ -17,6 +17,7 @@ final class LingoPulseIMEController: IMKInputController {
     private var session = TypingSession()
     private let debouncer = Debouncer(interval: 1.5)
     private let daemon = IMEDaemonClient()
+    private let suggestionWindow = SuggestionWindow()
     private var inFlight = false
 
     // MARK: - Lifecycle
@@ -32,6 +33,7 @@ final class LingoPulseIMEController: IMKInputController {
     override func deactivateServer(_ sender: Any!) {
         debouncer.cancel()
         session.reset()
+        suggestionWindow.hide()
     }
 
     // MARK: - IMKServerInput (keybinding approach)
@@ -55,7 +57,14 @@ final class LingoPulseIMEController: IMKInputController {
     /// active application.
     override func didCommand(by aSelector: Selector!, client sender: Any!) -> Bool {
         switch aSelector {
-        // Navigation / commit / cancel
+        // Tab: Phase 6 will accept the suggestion; for now log + dismiss.
+        case #selector(NSResponder.insertTab(_:)):
+            if suggestionWindow.isVisible {
+                suggestionWindow.handleTabKey()
+                return false  // pass through so app still receives Tab
+            }
+
+        // Navigation / commit / cancel — reset session and dismiss any suggestion.
         case #selector(NSResponder.insertNewline(_:)),                      // Return
              #selector(NSResponder.insertLineBreak(_:)),                    // Ctrl-Return
              #selector(NSResponder.cancelOperation(_:)),                    // Escape / Cmd-.
@@ -91,6 +100,8 @@ final class LingoPulseIMEController: IMKInputController {
              #selector(NSResponder.deleteToBeginningOfLine(_:)):            // Cmd-Backspace
             debouncer.cancel()
             session.reset()
+            suggestionWindow.hide()
+
         default:
             break
         }
@@ -108,16 +119,41 @@ final class LingoPulseIMEController: IMKInputController {
         guard !inFlight, !session.isEmpty else { return }
         let snapshot = session.buffer
         let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
+
+        // Capture caret rect before going async.
+        // attributes(forCharacterIndex:lineHeightRectangle:) returns the font/
+        // orientation dict; the caret rect comes via the inout lineRect parameter.
+        // The rect is in AppKit screen coordinates: origin at bottom-left of the
+        // primary display, Y increasing upward.
+        let caretRect = caretScreenRect()
+
         inFlight = true
         Task { @MainActor in
             defer { self.inFlight = false }
             do {
                 let resp = try await self.daemon.refine(text: snapshot, app: appName)
                 NSLog("LingoPulseIME: refine → \(resp.edits.count) edits, refined=\(resp.refined.suffix(60))")
-                // Phase 5 will show UI; phase 6 will handle Tab-accept
+                if !resp.edits.isEmpty {
+                    self.suggestionWindow.show(edits: resp.edits, caretScreenRect: caretRect)
+                }
+                // Phase 6 will handle Tab-accept
             } catch {
                 NSLog("LingoPulseIME: refine error \(error)")
             }
         }
+    }
+
+    /// Asks the current IMK client for the line-height rect at character index 0
+    /// (the insertion point when there is no inline session).
+    /// Returns .zero when the client does not provide a usable rect.
+    private func caretScreenRect() -> NSRect {
+        guard let textClient = client() as? (IMKTextInput & NSObject) else {
+            return .zero
+        }
+        var lineRect = NSRect.zero
+        // The return value is the attributes dict; the rect is the inout param.
+        _ = textClient.attributes(forCharacterIndex: 0,
+                                  lineHeightRectangle: &lineRect)
+        return lineRect
     }
 }
