@@ -1,5 +1,6 @@
 import Foundation
 import InputMethodKit
+import AppKit
 import LingoPulseIMECore
 
 // LingoPulseIMEController intercepts keystrokes via InputMethodKit's keybinding
@@ -14,6 +15,9 @@ final class LingoPulseIMEController: IMKInputController {
     // MARK: - State
 
     private var session = TypingSession()
+    private let debouncer = Debouncer(interval: 1.5)
+    private let daemon = IMEDaemonClient()
+    private var inFlight = false
 
     // MARK: - Lifecycle
 
@@ -26,6 +30,7 @@ final class LingoPulseIMEController: IMKInputController {
     }
 
     override func deactivateServer(_ sender: Any!) {
+        debouncer.cancel()
         session.reset()
     }
 
@@ -36,6 +41,10 @@ final class LingoPulseIMEController: IMKInputController {
     override func inputText(_ string: String!, client sender: Any!) -> Bool {
         guard let text = string, !text.isEmpty else { return false }
         session.append(text)
+
+        debouncer.schedule { [weak self] in
+            self?.requestRefine()
+        }
         return false
     }
 
@@ -80,6 +89,7 @@ final class LingoPulseIMEController: IMKInputController {
              #selector(NSResponder.deleteWordBackward(_:)),                 // Option-Backspace
              #selector(NSResponder.deleteWordForward(_:)),                  // Option-Delete
              #selector(NSResponder.deleteToBeginningOfLine(_:)):            // Cmd-Backspace
+            debouncer.cancel()
             session.reset()
         default:
             break
@@ -88,6 +98,26 @@ final class LingoPulseIMEController: IMKInputController {
     }
 
     override func commitComposition(_ sender: Any!) {
+        debouncer.cancel()
         session.reset()
+    }
+
+    // MARK: - Daemon
+
+    private func requestRefine() {
+        guard !inFlight, !session.isEmpty else { return }
+        let snapshot = session.buffer
+        let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
+        inFlight = true
+        Task { @MainActor in
+            defer { self.inFlight = false }
+            do {
+                let resp = try await self.daemon.refine(text: snapshot, app: appName)
+                NSLog("LingoPulseIME: refine → \(resp.edits.count) edits, refined=\(resp.refined.suffix(60))")
+                // Phase 5 will show UI; phase 6 will handle Tab-accept
+            } catch {
+                NSLog("LingoPulseIME: refine error \(error)")
+            }
+        }
     }
 }

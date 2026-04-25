@@ -1,0 +1,24 @@
+import Foundation
+
+public final class Debouncer {
+    private let interval: TimeInterval
+    private var workItem: DispatchWorkItem?
+    private let queue: DispatchQueue
+
+    public init(interval: TimeInterval, queue: DispatchQueue = .main) {
+        self.interval = interval
+        self.queue = queue
+    }
+
+    public func schedule(_ block: @escaping () -> Void) {
+        workItem?.cancel()
+        let item = DispatchWorkItem(block: block)
+        workItem = item
+        queue.asyncAfter(deadline: .now() + interval, execute: item)
+    }
+
+    public func cancel() {
+        workItem?.cancel()
+        workItem = nil
+    }
+}
