@@ -67,6 +67,20 @@ final class AXLiveObserver {
         let appElement = AXUIElementCreateApplication(pid)
         AXObserverAddNotification(observer, appElement, kAXFocusedUIElementChangedNotification as CFString, selfPtr)
 
+        // Subscribe to value changes on the currently focused element. Without this,
+        // typing in an already-focused field (the common case) never fires our callback
+        // because kAXFocusedUIElementChangedNotification only fires on focus *changes*.
+        var currentFocused: CFTypeRef?
+        let focusErr = AXUIElementCopyAttributeValue(appElement, kAXFocusedUIElementAttribute as CFString, &currentFocused)
+        if focusErr == .success, let focusedAny = currentFocused {
+            let element = focusedAny as! AXUIElement
+            focusedElement = element
+            AXObserverAddNotification(observer, element, kAXValueChangedNotification as CFString, selfPtr)
+            Log.debug("AX: subscribed to value changes on initial focused element of \(appName)")
+        } else {
+            Log.debug("AX: no focused element on attach to \(appName) (err=\(focusErr.rawValue))")
+        }
+
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
         Log.debug("AX: attached to \(appName)")
     }

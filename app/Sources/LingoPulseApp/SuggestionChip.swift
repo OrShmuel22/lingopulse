@@ -29,10 +29,8 @@ final class SuggestionChip {
 
         hide()
 
-        let origin = elementOrigin(element)
-
         let panel = NSPanel(
-            contentRect: NSRect(x: origin.x, y: origin.y, width: 360, height: 80),
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 80),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -45,7 +43,7 @@ final class SuggestionChip {
         panel.isMovableByWindowBackground = false
         panel.isOpaque = false
 
-        let chipView = makeChipView(origin: origin, panel: panel)
+        let chipView = makeChipView()
         let hc = NSHostingController(rootView: chipView)
         hc.view.frame = panel.contentView!.bounds
         hc.view.autoresizingMask = [.width, .height]
@@ -54,18 +52,25 @@ final class SuggestionChip {
 
         sizePanel(panel, hc: hc)
 
+        // Compute origin AFTER sizing so we know the panel height for AppKit's
+        // bottom-left origin coordinate.
+        let panelSize = panel.frame.size
+        let origin = chipOrigin(near: element, panelSize: panelSize)
+
         self.window = panel
         self.hostingController = hc
 
         panel.alphaValue = 0
         panel.setFrameOrigin(NSPoint(x: origin.x, y: origin.y - 8))
-        panel.makeKeyAndOrderFront(nil)
+        panel.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.15
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = 1.0
             panel.animator().setFrameOrigin(origin)
         }, completionHandler: nil)
+
+        Log.debug("chip: shown at \(origin) size \(panelSize) edits=\(allEdits.count)")
 
         let dismissInterval = Preferences.shared.autoDismissSeconds
         dismissTimer = Timer.scheduledTimer(withTimeInterval: dismissInterval, repeats: false) { [weak self] _ in
@@ -111,12 +116,12 @@ final class SuggestionChip {
 
     private func rerender() {
         guard let panel = window, let hc = hostingController else { return }
-        let chipView = makeChipView(origin: panel.frame.origin, panel: panel)
+        let chipView = makeChipView()
         hc.rootView = chipView
         sizePanel(panel, hc: hc)
     }
 
-    private func makeChipView(origin: CGPoint, panel: NSPanel) -> ChipView {
+    private func makeChipView() -> ChipView {
         let edit = allEdits[currentIndex]
         let countLabel: String? = allEdits.count > 1 ? "\(currentIndex + 1) of \(allEdits.count)" : nil
         return ChipView(edit: edit, countLabel: countLabel, onNeverFix: onNeverFix, currentApp: currentApp)
@@ -124,34 +129,67 @@ final class SuggestionChip {
 
     private func sizePanel(_ panel: NSPanel, hc: NSHostingController<ChipView>) {
         let fittingSize = hc.sizeThatFits(in: CGSize(width: 400, height: 200))
-        let finalWidth = max(fittingSize.width, 240)
-        let finalHeight = max(fittingSize.height, 64)
+        let finalWidth = max(fittingSize.width, 280)
+        let finalHeight = max(fittingSize.height, 70)
         panel.setContentSize(CGSize(width: finalWidth, height: finalHeight))
     }
 
-    private func elementOrigin(_ element: AXUIElement?) -> CGPoint {
-        guard let element = element else { return fallbackOrigin() }
+    private func chipOrigin(near element: AXUIElement?, panelSize: CGSize) -> CGPoint {
+        guard let element = element,
+              let screen = NSScreen.main else {
+            return fallbackOrigin(panelSize: panelSize)
+        }
 
         var posValue: CFTypeRef?
         var sizeValue: CFTypeRef?
         AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posValue)
         AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue)
 
-        guard let pv = posValue, let sv = sizeValue else { return fallbackOrigin() }
+        guard let pv = posValue, let sv = sizeValue else {
+            return fallbackOrigin(panelSize: panelSize)
+        }
 
-        var point = CGPoint.zero
+        var axTopLeft = CGPoint.zero
         var size = CGSize.zero
-        guard AXValueGetValue(pv as! AXValue, .cgPoint, &point),
-              AXValueGetValue(sv as! AXValue, .cgSize, &size) else { return fallbackOrigin() }
+        guard AXValueGetValue(pv as! AXValue, .cgPoint, &axTopLeft),
+              AXValueGetValue(sv as! AXValue, .cgSize, &size) else {
+            return fallbackOrigin(panelSize: panelSize)
+        }
 
-        let axY = point.y + size.height + 4
-        let cocoaY = NSScreen.main!.frame.maxY - axY
-        return CGPoint(x: point.x, y: cocoaY)
+        // AX uses top-left origin, AppKit uses bottom-left.
+        // Place chip's TOP edge 6pt below element's bottom.
+        // In AppKit, panel frame origin is the bottom-left of the panel,
+        // so we need: panelBottom = elementBottomInCocoa - panelHeight
+        let elementBottomAX = axTopLeft.y + size.height
+        let elementBottomCocoa = screen.frame.maxY - elementBottomAX
+        let panelBottomY = elementBottomCocoa - panelSize.height - 6
+
+        // Clamp X within visible screen, leave 8pt margin
+        var x = axTopLeft.x
+        if x + panelSize.width > screen.frame.maxX - 8 {
+            x = screen.frame.maxX - panelSize.width - 8
+        }
+        if x < screen.frame.minX + 8 {
+            x = screen.frame.minX + 8
+        }
+
+        // If chip would go below screen, place it ABOVE the element instead
+        var y = panelBottomY
+        if y < screen.frame.minY + 8 {
+            let elementTopCocoa = screen.frame.maxY - axTopLeft.y
+            y = elementTopCocoa + 6
+        }
+
+        return CGPoint(x: x, y: y)
     }
 
-    private func fallbackOrigin() -> CGPoint {
-        let mouse = NSEvent.mouseLocation
-        return CGPoint(x: mouse.x + 8, y: mouse.y - 28)
+    private func fallbackOrigin(panelSize: CGSize) -> CGPoint {
+        // Top-right of screen, 16pt from edges. Predictable, never near user's caret.
+        guard let screen = NSScreen.main else { return CGPoint(x: 100, y: 100) }
+        return CGPoint(
+            x: screen.frame.maxX - panelSize.width - 16,
+            y: screen.frame.maxY - panelSize.height - 40
+        )
     }
 }
 

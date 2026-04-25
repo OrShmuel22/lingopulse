@@ -44,8 +44,11 @@ def _classify(from_text: str, to_text: str) -> tuple[str, str]:
     if from_low in {"i want that you will", "i want that you"}:
         return ("structure", "Hebrew sentence structure: use 'please X' or 'could you X'")
 
-    if from_low == to_low.replace("'", ""):
+    if "'" in to_text and from_low == to_low.replace("'", ""):
         return ("apostrophe", "Missing apostrophe in contraction")
+
+    if from_text != to_text and from_text.lower() == to_text.lower():
+        return ("capitalization", f"Capitalization: '{from_text}' → '{to_text}'")
 
     if to_low == from_low + "s" or to_low + "s" == from_low:
         return ("plural", "Plural agreement")
