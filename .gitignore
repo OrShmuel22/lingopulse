@@ -24,5 +24,10 @@ benchmarks/*.json
 # Swift app build artifacts
 app/.build/
 app/LingoPulse.app/
+app/LingoPulseIME.app/
 app/.swiftpm/
 app/Package.resolved
+
+# Claude agent worktrees and memory
+.claude/
+.claire/
