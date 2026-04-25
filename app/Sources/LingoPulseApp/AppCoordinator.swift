@@ -18,10 +18,16 @@ final class AppCoordinator {
             do {
                 let resp = try await daemon.refine(selection: text, app: app, toneOverride: nil)
                 NSLog("LingoPulse: \(resp.edits.count) edits returned")
+                NSLog("LingoPulse:   ORIGINAL: \(resp.original)")
+                NSLog("LingoPulse:   REFINED:  \(resp.refined)")
                 for e in resp.edits {
                     NSLog("  - [\(e.category)] \(e.from_text) → \(e.to_text)")
                 }
-                if AXClient.writeFocusedValue(resp.refined) {
+                let isTerminal = ["iTerm2", "Terminal", "Alacritty", "WezTerm", "Hyper", "Warp"].contains(app)
+                if isTerminal {
+                    NSLog("LingoPulse: \(app) is a terminal — copying to clipboard (AX write unreliable)")
+                    pasteViaClipboard(resp.refined)
+                } else if AXClient.writeFocusedValue(resp.refined) {
                     NSLog("LingoPulse: pasted via AX write")
                 } else {
                     NSLog("LingoPulse: AX write failed, copying to clipboard")

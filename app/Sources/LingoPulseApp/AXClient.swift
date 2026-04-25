@@ -9,20 +9,39 @@ enum AXClient {
 
     /// Returns selection text + frontmost app bundle name.
     static func readSelection() -> (text: String, app: String)? {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
+        let trustedNow = AXIsProcessTrusted()
+        guard let app = NSWorkspace.shared.frontmostApplication else {
+            NSLog("LingoPulse AX: no frontmost app (trusted=\(trustedNow))")
+            return nil
+        }
         let appName = app.localizedName ?? app.bundleIdentifier ?? "Unknown"
         let pid = app.processIdentifier
+        NSLog("LingoPulse AX: frontmost=\(appName) pid=\(pid) trusted=\(trustedNow)")
 
         let appElement = AXUIElementCreateApplication(pid)
-        guard let focused = copyAttribute(appElement, kAXFocusedUIElementAttribute) else { return nil }
-        let element = focused as! AXUIElement
+        var focusedRef: CFTypeRef?
+        let focusedErr = AXUIElementCopyAttributeValue(appElement, kAXFocusedUIElementAttribute as CFString, &focusedRef)
+        guard focusedErr == .success, let focusedAny = focusedRef else {
+            NSLog("LingoPulse AX: focus read failed (err=\(focusedErr.rawValue)) — likely AX permission denied for this app or app blocks AX")
+            return nil
+        }
+        let element = focusedAny as! AXUIElement
 
-        if let selected = copyAttribute(element, kAXSelectedTextAttribute) as? String, !selected.isEmpty {
+        var selectedRef: CFTypeRef?
+        let selErr = AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &selectedRef)
+        if selErr == .success, let selected = selectedRef as? String, !selected.isEmpty {
+            NSLog("LingoPulse AX: got kAXSelectedText (\(selected.count) chars)")
             return (selected, appName)
         }
-        if let value = copyAttribute(element, kAXValueAttribute) as? String, !value.isEmpty {
+
+        var valueRef: CFTypeRef?
+        let valErr = AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueRef)
+        if valErr == .success, let value = valueRef as? String, !value.isEmpty {
+            NSLog("LingoPulse AX: got kAXValue (\(value.count) chars)")
             return (value, appName)
         }
+
+        NSLog("LingoPulse AX: focus reachable but no text — selErr=\(selErr.rawValue) valErr=\(valErr.rawValue). Try selecting text first.")
         return nil
     }
 
