@@ -31,6 +31,10 @@ struct Edit: Decodable {
     let reason: String
 }
 
+extension Edit {
+    var categoryEnum: EditCategory { EditCategory(rawValue: category) ?? .other }
+}
+
 struct StatusResponse: Decodable {
     let healthy: Bool
     let model: String
@@ -67,7 +71,7 @@ final class DaemonClient {
     init(baseURL: URL) {
         self.baseURL = baseURL
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 60
+        config.timeoutIntervalForRequest = Constants.Daemon.timeoutSeconds
         self.session = URLSession(configuration: config)
     }
 
@@ -137,25 +141,40 @@ final class DaemonClient {
         guard (200..<300).contains(http.statusCode) else {
             throw DaemonError.http(http.statusCode)
         }
-        // Daemon wraps everything in {ok, data} or {ok:false, error}
         let envelope: Envelope<T>
         do {
             envelope = try JSONDecoder().decode(Envelope<T>.self, from: data)
         } catch {
             throw DaemonError.decode(error)
         }
-        if let err = envelope.error {
-            throw DaemonError.payload(err)
+        switch envelope {
+        case .success(let payload): return payload
+        case .failure(let msg): throw DaemonError.payload(msg)
         }
-        guard let payload = envelope.data else {
-            throw DaemonError.payload("missing data field")
-        }
-        return payload
     }
 }
 
-private struct Envelope<T: Decodable>: Decodable {
-    let ok: Bool
-    let data: T?
-    let error: String?
+private enum Envelope<T: Decodable>: Decodable {
+    case success(T)
+    case failure(String)
+
+    private struct Raw: Decodable {
+        let ok: Bool
+        let data: T?
+        let error: String?
+    }
+
+    init(from decoder: Decoder) throws {
+        let raw = try Raw(from: decoder)
+        if raw.ok, let data = raw.data {
+            self = .success(data)
+        } else if !raw.ok, let error = raw.error {
+            self = .failure(error)
+        } else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: decoder.codingPath,
+                debugDescription: "Invalid envelope: ok=\(raw.ok), data=\(raw.data == nil ? "nil" : "present"), error=\(raw.error ?? "nil")"
+            ))
+        }
+    }
 }

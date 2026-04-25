@@ -1,6 +1,8 @@
 import Foundation
 import os
 
+typealias OSLogger = Logger
+
 enum LogLevel: String, CaseIterable {
     case off = "Off"
     case basic = "Basic"
@@ -12,11 +14,16 @@ enum LogLevel: String, CaseIterable {
 }
 
 enum Log {
-    private static let logger = Logger(subsystem: "com.lingopulse.app", category: "main")
+    static let logger = OSLogger(subsystem: "com.lingopulse.app", category: "main")
+    private static var cachedLevelRaw: String = "Basic"
+    private static let levelLock = NSLock()
 
-    // Read directly from UserDefaults so this is safe to call from any thread/actor.
-    private static var currentLevel: LogLevel {
-        let raw = UserDefaults.standard.string(forKey: "lp.logLevel") ?? "Basic"
+    static func setLevel(_ raw: String) {
+        levelLock.withLock { cachedLevelRaw = raw }
+    }
+
+    static var currentLevel: LogLevel {
+        let raw = levelLock.withLock { cachedLevelRaw }
         return LogLevel(rawValue: raw) ?? .basic
     }
 

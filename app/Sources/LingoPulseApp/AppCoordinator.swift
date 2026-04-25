@@ -6,12 +6,13 @@ final class AppCoordinator {
     private(set) var daemon: DaemonClient
     var daemonClient: DaemonClient { daemon }
     private let liveObserver = AXLiveObserver()
-    private let debouncer = Debouncer(interval: 1.5)
+    private let debouncer = Debouncer(interval: Constants.Timing.debounceSeconds)
     private let chip = SuggestionChip()
     private let keyMonitor = KeyMonitor()
     private var inFlight = false
     private var coldStartShown = false
     private var lastDaemonDownNotice: Date?
+    private var currentRefineTask: Task<Void, Never>?
 
     init(daemon: DaemonClient) {
         self.daemon = daemon
@@ -32,6 +33,7 @@ final class AppCoordinator {
     func stopLiveListener() {
         liveObserver.stop()
         debouncer.cancel()
+        currentRefineTask?.cancel()
         chip.hide()
         keyMonitor.stop()
     }
@@ -43,20 +45,23 @@ final class AppCoordinator {
 
     private func handleDebouncedText(text: String, app: String, element: AXUIElement) {
         guard !inFlight else { return }
-        guard text.split(separator: " ").count >= 3 else { return }
+        guard text.split(separator: " ").count >= Constants.Refine.minWordsForLiveTrigger else { return }
         inFlight = true
-        Task { @MainActor in
+        currentRefineTask?.cancel()
+        currentRefineTask = Task { @MainActor in
             defer { self.inFlight = false }
             do {
                 let start = Date()
                 let resp = try await daemon.refine(selection: text, app: app, toneOverride: nil)
+                if Task.isCancelled { return }
                 let elapsed = Date().timeIntervalSince(start)
-                if elapsed > 2.0 {
+                if elapsed > Constants.Timing.coldStartThresholdSeconds {
                     self.showColdStartNotice()
                 }
                 guard !resp.edits.isEmpty else { return }
                 self.showChip(edits: resp.edits, original: text, refined: resp.refined, app: app, element: element)
             } catch {
+                if Task.isCancelled { return }
                 Log.error("live: refine error \(error)")
                 self.showDaemonDownIfFresh()
             }
@@ -66,14 +71,15 @@ final class AppCoordinator {
     private func showColdStartNotice() {
         guard !coldStartShown else { return }
         coldStartShown = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + Constants.Timing.notificationCooldownSeconds) { [weak self] in
             self?.coldStartShown = false
         }
         Notifications.show(title: "LingoPulse", body: "Warming up gemma3 — next refine will be fast.")
     }
 
     private func showDaemonDownIfFresh() {
-        if let last = lastDaemonDownNotice, Date().timeIntervalSince(last) < 60 { return }
+        if let last = lastDaemonDownNotice,
+           Date().timeIntervalSince(last) < Constants.Timing.notificationCooldownSeconds { return }
         lastDaemonDownNotice = Date()
         Notifications.show(title: "LingoPulse", body: "Daemon unreachable. Check launchctl list | grep lingopulse.")
     }
@@ -127,8 +133,7 @@ final class AppCoordinator {
     }
 
     private func applyFinalAndCleanup(text: String, app: String) {
-        let isTerminal = ["iTerm2", "Terminal", "Alacritty", "WezTerm", "Hyper", "Warp"].contains(app)
-        if isTerminal {
+        if AppKind.fromAppName(app).isTerminal {
             pasteViaClipboard(text)
         } else if !AXClient.writeFocusedValue(text) {
             pasteViaClipboard(text)
@@ -167,7 +172,7 @@ final class AppCoordinator {
                 let start = Date()
                 let resp = try await daemon.refine(selection: text, app: app, toneOverride: nil)
                 let elapsed = Date().timeIntervalSince(start)
-                if elapsed > 2.0 {
+                if elapsed > Constants.Timing.coldStartThresholdSeconds {
                     self.showColdStartNotice()
                 }
                 Log.info("\(resp.edits.count) edits returned")
@@ -176,8 +181,7 @@ final class AppCoordinator {
                 for e in resp.edits {
                     Log.debug("  - [\(e.category)] \(e.from_text) → \(e.to_text)")
                 }
-                let isTerminal = ["iTerm2", "Terminal", "Alacritty", "WezTerm", "Hyper", "Warp"].contains(app)
-                if isTerminal {
+                if AppKind.fromAppName(app).isTerminal {
                     Log.info("\(app) is a terminal — copying to clipboard (AX write unreliable)")
                     self.pasteViaClipboard(resp.refined)
                 } else if AXClient.writeFocusedValue(resp.refined) {
@@ -200,7 +204,7 @@ final class AppCoordinator {
             do {
                 let s = try await daemon.status()
                 Log.info("status: model=\(s.model) loaded=\(s.model_loaded)")
-                self.showToast(title: "Daemon", body: "model=\(s.model) loaded=\(s.model_loaded)")
+                Notifications.show(title: "Daemon", body: "model=\(s.model) loaded=\(s.model_loaded)")
             } catch {
                 Log.error("status error: \(error)")
             }
@@ -211,14 +215,5 @@ final class AppCoordinator {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
-    }
-
-    private func showToast(title: String, body: String) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = body
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
     }
 }

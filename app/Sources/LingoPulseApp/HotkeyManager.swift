@@ -1,19 +1,23 @@
 import AppKit
 import Carbon.HIToolbox
 
+private final class HotkeyContext {
+    var onPressed: (() -> Void)?
+}
+
 final class HotkeyManager {
-    private let coordinator: AppCoordinator
+    private let context = HotkeyContext()
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
-    private static var instance: HotkeyManager?
     private var keyCode: UInt32
     private var modifiers: UInt32
 
     init(coordinator: AppCoordinator, keyCode: UInt32, modifiers: UInt32) {
-        self.coordinator = coordinator
         self.keyCode = keyCode
         self.modifiers = modifiers
-        HotkeyManager.instance = self
+        self.context.onPressed = { [weak coordinator] in
+            Task { @MainActor in coordinator?.refineFocusedSelection() }
+        }
         register()
     }
 
@@ -32,24 +36,17 @@ final class HotkeyManager {
     }
 
     private func register() {
-        let hotKeyID = EventHotKeyID(signature: OSType(0x4C50_5246), id: 1) // 'LPRF'
+        let hotKeyID = EventHotKeyID(signature: OSType(0x4C50_5246), id: 1)
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        let cb: EventHandlerProcPtr = { _, eventRef, _ in
-            guard let event = eventRef else { return noErr }
-            var hkID = EventHotKeyID()
-            GetEventParameter(
-                event,
-                EventParamName(kEventParamDirectObject),
-                EventParamType(typeEventHotKeyID),
-                nil,
-                MemoryLayout<EventHotKeyID>.size,
-                nil,
-                &hkID
-            )
-            Task { @MainActor in HotkeyManager.instance?.coordinator.refineFocusedSelection() }
+
+        let cb: EventHandlerProcPtr = { _, _, userData in
+            guard let ud = userData else { return noErr }
+            let context = Unmanaged<HotkeyContext>.fromOpaque(ud).takeUnretainedValue()
+            context.onPressed?()
             return noErr
         }
-        InstallEventHandler(GetApplicationEventTarget(), cb, 1, &spec, nil, &handlerRef)
+        let userData = Unmanaged.passUnretained(context).toOpaque()
+        InstallEventHandler(GetApplicationEventTarget(), cb, 1, &spec, userData, &handlerRef)
         RegisterEventHotKey(keyCode, modifiers, hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
     }
 }

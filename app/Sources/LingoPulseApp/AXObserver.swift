@@ -1,8 +1,6 @@
 import AppKit
 import ApplicationServices
 
-private let terminalApps: Set<String> = ["iTerm2", "Terminal", "Alacritty", "WezTerm", "Hyper", "Warp"]
-
 final class AXLiveObserver {
     var onTextChange: ((String, String, AXUIElement) -> Void)?
 
@@ -49,7 +47,7 @@ final class AXLiveObserver {
 
     private func startTrustPolling() {
         guard trustPollTimer == nil else { return }
-        trustPollTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] timer in
+        trustPollTimer = Timer.scheduledTimer(withTimeInterval: Constants.Timing.axTrustPollSeconds, repeats: true) { [weak self] timer in
             guard let self = self else { return }
             if AXIsProcessTrusted() {
                 timer.invalidate()
@@ -63,7 +61,6 @@ final class AXLiveObserver {
 
     private func attachToApp(_ app: NSRunningApplication) {
         let appName = app.localizedName ?? app.bundleIdentifier ?? "Unknown"
-        guard !terminalApps.contains(appName) else { return }
         guard AXIsProcessTrusted() else { return }
         // Called on main queue (notification observer uses queue: .main)
         let isEnabled = MainActor.assumeIsolated { Preferences.shared.enabled }

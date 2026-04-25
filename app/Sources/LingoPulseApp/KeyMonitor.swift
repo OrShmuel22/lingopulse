@@ -16,7 +16,7 @@ final class KeyMonitor {
     /// Grace period after start during which non-Tab/Esc/arrow keystrokes don't dismiss.
     /// User typically pauses, chip appears, types one more char before deciding — that
     /// shouldn't kill the suggestion.
-    private let graceSeconds: TimeInterval = 0.6
+    private let graceSeconds: TimeInterval = Constants.Timing.keyGracePeriodSeconds
 
     func start() {
         startedAt = Date()

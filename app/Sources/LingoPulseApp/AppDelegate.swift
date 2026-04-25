@@ -15,7 +15,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let prefs = Preferences.shared
-        let url = URL(string: prefs.daemonURL) ?? URL(string: "http://127.0.0.1:17823")!
+
+        Log.setLevel(prefs.logLevel)
+        prefs.$logLevel
+            .dropFirst()
+            .sink { Log.setLevel($0) }
+            .store(in: &prefsObservers)
+
+        let url = URL(string: prefs.daemonURL) ?? Constants.Daemon.defaultURL
         let coordinator = AppCoordinator(daemon: DaemonClient(baseURL: url))
         self.coordinator = coordinator
 

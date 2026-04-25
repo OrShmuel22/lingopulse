@@ -71,10 +71,10 @@ final class SuggestionChip {
         self.hostingController = hc
 
         panel.alphaValue = 0
-        panel.setFrameOrigin(NSPoint(x: origin.x, y: origin.y - 8))
+        panel.setFrameOrigin(NSPoint(x: origin.x, y: origin.y - Constants.Layout.chipSlideOffset))
         panel.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.15
+            ctx.duration = Constants.Timing.chipShowAnimationSeconds
             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().alphaValue = 1.0
             panel.animator().setFrameOrigin(origin)
@@ -116,7 +116,7 @@ final class SuggestionChip {
         self.window = nil
         self.hostingController = nil
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.10
+            ctx.duration = Constants.Timing.chipHideAnimationSeconds
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             window.animator().alphaValue = 0
         }, completionHandler: {
@@ -139,9 +139,9 @@ final class SuggestionChip {
     }
 
     private func sizePanel(_ panel: NSPanel, hc: NSHostingController<ChipView>) {
-        let fittingSize = hc.sizeThatFits(in: CGSize(width: 400, height: 200))
-        let finalWidth = max(fittingSize.width, 280)
-        let finalHeight = max(fittingSize.height, 70)
+        let fittingSize = hc.sizeThatFits(in: CGSize(width: Constants.Layout.chipMaxWidth, height: Constants.Layout.chipMaxHeight))
+        let finalWidth = max(fittingSize.width, Constants.Layout.chipMinWidth)
+        let finalHeight = max(fittingSize.height, Constants.Layout.chipMinHeight)
         panel.setContentSize(CGSize(width: finalWidth, height: finalHeight))
     }
 
@@ -162,27 +162,27 @@ final class SuggestionChip {
         }
 
         // AX uses top-left origin, AppKit uses bottom-left.
-        // Place chip's TOP edge 6pt below element's bottom.
+        // Place chip's TOP edge chipElementOffset below element's bottom.
         // In AppKit, panel frame origin is the bottom-left of the panel,
         // so we need: panelBottom = elementBottomInCocoa - panelHeight
         let elementBottomAX = axTopLeft.y + size.height
         let elementBottomCocoa = screen.frame.maxY - elementBottomAX
-        let panelBottomY = elementBottomCocoa - panelSize.height - 6
+        let panelBottomY = elementBottomCocoa - panelSize.height - Constants.Layout.chipElementOffset
 
-        // Clamp X within visible screen, leave 8pt margin
+        // Clamp X within visible screen, leave chipSlideOffset margin
         var x = axTopLeft.x
-        if x + panelSize.width > screen.frame.maxX - 8 {
-            x = screen.frame.maxX - panelSize.width - 8
+        if x + panelSize.width > screen.frame.maxX - Constants.Layout.chipSlideOffset {
+            x = screen.frame.maxX - panelSize.width - Constants.Layout.chipSlideOffset
         }
-        if x < screen.frame.minX + 8 {
-            x = screen.frame.minX + 8
+        if x < screen.frame.minX + Constants.Layout.chipSlideOffset {
+            x = screen.frame.minX + Constants.Layout.chipSlideOffset
         }
 
         // If chip would go below screen, place it ABOVE the element instead
         var y = panelBottomY
-        if y < screen.frame.minY + 8 {
+        if y < screen.frame.minY + Constants.Layout.chipSlideOffset {
             let elementTopCocoa = screen.frame.maxY - axTopLeft.y
-            y = elementTopCocoa + 6
+            y = elementTopCocoa + Constants.Layout.chipElementOffset
         }
 
         return CGPoint(x: x, y: y)
@@ -191,8 +191,8 @@ final class SuggestionChip {
     private func fallbackOrigin(panelSize: CGSize) -> CGPoint {
         guard let screen = NSScreen.main else { return CGPoint(x: 100, y: 100) }
         return CGPoint(
-            x: screen.frame.maxX - panelSize.width - 16,
-            y: screen.frame.maxY - panelSize.height - 40
+            x: screen.frame.maxX - panelSize.width - Constants.Layout.chipScreenMargin,
+            y: screen.frame.maxY - panelSize.height - Constants.Layout.chipScreenMargin * 2.5
         )
     }
 }
@@ -225,7 +225,7 @@ struct ChipView: View {
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
                 Spacer()
-                categoryPill(edit.category)
+                categoryPill(edit.categoryEnum)
             }
             HStack(spacing: 4) {
                 if let label = countLabel {
@@ -250,12 +250,12 @@ struct ChipView: View {
         .padding(4)
     }
 
-    private func categoryPill(_ category: String) -> some View {
+    private func categoryPill(_ category: EditCategory) -> some View {
         RoundedRectangle(cornerRadius: 8)
             .fill(categoryColor(category))
             .frame(height: 20)
             .overlay(
-                Text(category.uppercased())
+                Text(category.rawValue.uppercased())
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
@@ -263,16 +263,16 @@ struct ChipView: View {
             .fixedSize()
     }
 
-    private func categoryColor(_ category: String) -> Color {
+    private func categoryColor(_ category: EditCategory) -> Color {
         switch category {
-        case "preposition", "comparative":  return Color.blue.opacity(0.85)
-        case "plural":                      return Color.green.opacity(0.85)
-        case "calque":                      return Color.orange.opacity(0.85)
-        case "structure":                   return Color.purple.opacity(0.85)
-        case "typo":                        return Color.red.opacity(0.85)
-        case "apostrophe":                  return Color(.darkGray)
-        case "grammar":                     return Color.gray
-        default:                            return Color.gray
+        case .preposition, .comparative: return Color.blue.opacity(0.85)
+        case .plural:                    return Color.green.opacity(0.85)
+        case .calque:                    return Color.orange.opacity(0.85)
+        case .structure:                 return Color.purple.opacity(0.85)
+        case .typo:                      return Color.red.opacity(0.85)
+        case .apostrophe:                return Color(.darkGray)
+        case .capitalization:            return Color.teal.opacity(0.85)
+        case .grammar, .other:           return Color.gray
         }
     }
 }
