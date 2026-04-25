@@ -10,21 +10,8 @@ final class ReviewPanel {
     private var hostingController: NSHostingController<ReviewPanelView>?
     private var stateModel: ReviewPanelState?
 
-    var onAcceptAll: (([Int]) -> Void)?
-    var onAcceptSafe: (([Int]) -> Void)?
-    var onAcceptIndex: ((Int) -> Void)?
-    var onRejectIndex: ((Int) -> Void)?
-    var onDismissAll: (() -> Void)?
-
-    func show(result: RefineResult) {
+    func show(state: ReviewPanelState) {
         hide()
-
-        let state = ReviewPanelState(result: result)
-        state.onAcceptAll = { [weak self] in self?.onAcceptAll?(state.acceptedIndices) }
-        state.onAcceptSafe = { [weak self] in self?.onAcceptSafe?(state.safeIndices) }
-        state.onAcceptIndex = { [weak self] idx in self?.onAcceptIndex?(idx) }
-        state.onRejectIndex = { [weak self] idx in self?.onRejectIndex?(idx) }
-        state.onDismissAll = { [weak self] in self?.onDismissAll?() }
         self.stateModel = state
 
         let panel = NSPanel(
@@ -37,7 +24,7 @@ final class ReviewPanel {
             backing: .buffered,
             defer: false
         )
-        panel.title = "LingoPulse — \(result.edits.count) Suggestions"
+        panel.title = "LingoPulse — \(state.result.edits.count) Suggestions"
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
@@ -76,11 +63,10 @@ final class ReviewPanel {
 final class ReviewPanelState: ObservableObject {
     let result: RefineResult
     @Published var perEditAccepted: [Bool]
+    @Published var currentRowIndex: Int = 0
 
     var onAcceptAll: (() -> Void)?
     var onAcceptSafe: (() -> Void)?
-    var onAcceptIndex: ((Int) -> Void)?
-    var onRejectIndex: ((Int) -> Void)?
     var onDismissAll: (() -> Void)?
 
     init(result: RefineResult) {
@@ -96,6 +82,21 @@ final class ReviewPanelState: ObservableObject {
         result.edits.enumerated()
             .filter { $0.element.riskEnum == .safe }
             .map { $0.offset }
+    }
+
+    func cursorNext() {
+        guard !result.edits.isEmpty else { return }
+        currentRowIndex = (currentRowIndex + 1) % result.edits.count
+    }
+
+    func cursorPrev() {
+        guard !result.edits.isEmpty else { return }
+        currentRowIndex = (currentRowIndex - 1 + result.edits.count) % result.edits.count
+    }
+
+    func toggleCurrent() {
+        guard currentRowIndex < perEditAccepted.count else { return }
+        perEditAccepted[currentRowIndex] = !perEditAccepted[currentRowIndex]
     }
 }
 
@@ -130,7 +131,6 @@ struct ReviewPanelView: View {
                 for idx in state.safeIndices { state.perEditAccepted[idx] = true }
                 state.onAcceptSafe?()
             }
-            .keyboardShortcut(.return, modifiers: .command)
             Button("Accept All") {
                 for i in 0..<state.perEditAccepted.count { state.perEditAccepted[i] = true }
                 state.onAcceptAll?()
@@ -138,7 +138,6 @@ struct ReviewPanelView: View {
             Button("Dismiss") {
                 state.onDismissAll?()
             }
-            .keyboardShortcut(.cancelAction)
         }
         .padding(12)
     }
@@ -201,11 +200,6 @@ struct ReviewPanelView: View {
                 get: { state.perEditAccepted[idx] },
                 set: { newVal in
                     state.perEditAccepted[idx] = newVal
-                    if newVal {
-                        state.onAcceptIndex?(idx)
-                    } else {
-                        state.onRejectIndex?(idx)
-                    }
                 }
             ))
             .labelsHidden()
@@ -235,12 +229,15 @@ struct ReviewPanelView: View {
         .padding(8)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color.gray.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(edit.riskEnum == .risky ? Color.red : Color.clear, lineWidth: 1.5)
-                )
+                .stroke(strokeColor(for: idx, edit: edit), lineWidth: idx == state.currentRowIndex ? 2.5 : 1.5)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color.gray.opacity(0.05)))
         )
+    }
+
+    private func strokeColor(for idx: Int, edit: Edit) -> Color {
+        if idx == state.currentRowIndex { return Color.accentColor }
+        if edit.riskEnum == .risky { return Color.red }
+        return Color.clear
     }
 
     // MARK: Badges

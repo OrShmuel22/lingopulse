@@ -6,6 +6,9 @@ final class KeyMonitor {
     var onEsc: (() -> Void)?
     var onArrowDown: (() -> Void)?
     var onArrowUp: (() -> Void)?
+    var onSpace: (() -> Void)?
+    var onReturn: (() -> Void)?
+    var onCommandReturn: (() -> Void)?
     var onOtherKey: (() -> Void)?
 
     fileprivate var tap: CFMachPort?
@@ -67,10 +70,11 @@ final class KeyMonitor {
     }
 
     /// Called from the CGEventTap callback. Returns true if event should be consumed.
-    func handle(keyCode: Int64) -> Bool {
+    func handle(keyCode: Int64, cmdHeld: Bool = false) -> Bool {
         let tabKey: Int64 = 48
         let escKey: Int64 = 53
         let returnKey: Int64 = 36
+        let spaceKey: Int64 = 49
         let downKey: Int64 = 125
         let upKey: Int64 = 126
 
@@ -87,7 +91,24 @@ final class KeyMonitor {
         case upKey:
             DispatchQueue.main.async { [weak self] in self?.onArrowUp?() }
             return true
+        case spaceKey:
+            if onSpace != nil {
+                DispatchQueue.main.async { [weak self] in self?.onSpace?() }
+                return true
+            }
+            return false
         case returnKey:
+            if cmdHeld {
+                if onCommandReturn != nil {
+                    DispatchQueue.main.async { [weak self] in self?.onCommandReturn?() }
+                    return true
+                }
+            } else {
+                if onReturn != nil {
+                    DispatchQueue.main.async { [weak self] in self?.onReturn?() }
+                    return true
+                }
+            }
             DispatchQueue.main.async { [weak self] in self?.onOtherKey?() }
             return false
         default:
@@ -115,6 +136,8 @@ private let keyTapCallback: CGEventTapCallBack = { _, type, event, userInfo in
     }
     let monitor = Unmanaged<KeyMonitor>.fromOpaque(info).takeUnretainedValue()
     let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-    let consume = monitor.handle(keyCode: keyCode)
+    let flags = event.flags
+    let cmdHeld = flags.contains(.maskCommand)
+    let consume = monitor.handle(keyCode: keyCode, cmdHeld: cmdHeld)
     return consume ? nil : Unmanaged.passUnretained(event)
 }
