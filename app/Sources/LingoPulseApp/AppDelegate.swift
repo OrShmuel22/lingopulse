@@ -29,7 +29,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let accessibility = AccessibilityService()
         let pipeline = SuggestionPipeline(daemon: daemon)
         let presenter = ReviewPresenter()
+
+        let config = AppConfig.shared
+        let ollama = OllamaService()
+        let history = HistoryStore()
+        let ringPath = config.path(at: "ring_buffer.path")
+            ?? FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".cache/lingopulse/ring.json")
+        let ringSize: Int = config.value(at: "ring_buffer.size") ?? 5
+        let ring = RingBuffer(fileURL: ringPath, size: ringSize)
+        let fixer = Fixer(ollama: ollama, config: config, history: history, ring: ring)
+
         let coordinator = AppCoordinator(
+            fixer: fixer,
             daemon: daemon,
             accessibility: accessibility,
             pipeline: pipeline,
