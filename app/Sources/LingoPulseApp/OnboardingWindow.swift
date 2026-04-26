@@ -48,6 +48,7 @@ private struct OnboardingView: View {
     @State private var installing: Bool = false
     @State private var axGranted: Bool = AXIsProcessTrusted()
     @State private var axPollTimer: Timer? = nil
+    @State private var axPollSecondsElapsed: Int = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -166,6 +167,24 @@ private struct OnboardingView: View {
                     requestAXAccess()
                 }
                 .buttonStyle(.borderedProminent)
+
+                if axPollSecondsElapsed >= 8 {
+                    VStack(spacing: 6) {
+                        Text("Already granted but stuck here?")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Text("macOS caches Accessibility trust per-process at launch. Restart LingoPulse to apply.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                        Button("Restart LingoPulse") {
+                            relaunchApp()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding(.top, 8)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -267,17 +286,18 @@ private struct OnboardingView: View {
     private func startAXPolling() {
         guard axPollTimer == nil else { return }
         axGranted = AXIsProcessTrusted()
+        axPollSecondsElapsed = 0
         if axGranted {
             step += 1
             return
         }
         axPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             Task { @MainActor in
+                axPollSecondsElapsed += 1
                 let trusted = AXIsProcessTrusted()
                 if trusted && !axGranted {
                     axGranted = true
                     stopAXPolling()
-                    // Brief pause so the user sees the granted state before advancing.
                     try? await Task.sleep(for: .milliseconds(600))
                     step += 1
                 }
@@ -288,5 +308,23 @@ private struct OnboardingView: View {
     private func stopAXPolling() {
         axPollTimer?.invalidate()
         axPollTimer = nil
+    }
+
+    /// Relaunch the app. Required after granting Accessibility because
+    /// AXIsProcessTrusted() is cached per-process at launch and won't
+    /// reflect the new grant until the process restarts.
+    private func relaunchApp() {
+        guard let bundlePath = Bundle.main.bundlePath as String? else {
+            NSApp.terminate(nil)
+            return
+        }
+        let task = Process()
+        task.launchPath = "/usr/bin/open"
+        task.arguments = ["-n", bundlePath]
+        try? task.run()
+        // Give the new instance ~500ms to start, then kill this one
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            NSApp.terminate(nil)
+        }
     }
 }
