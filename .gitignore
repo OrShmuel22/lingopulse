@@ -27,6 +27,7 @@ app/LingoPulse.app/
 app/LingoPulseIME.app/
 app/.swiftpm/
 app/Package.resolved
+app/*.dmg
 
 # Claude agent worktrees and memory
 .claude/
