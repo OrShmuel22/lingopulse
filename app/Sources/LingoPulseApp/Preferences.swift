@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import Carbon.HIToolbox
+import ServiceManagement
 
 @MainActor
 final class Preferences: ObservableObject {
@@ -25,6 +26,7 @@ final class Preferences: ObservableObject {
         static let autoDismissSeconds = "lp.autoDismissSeconds"
         static let logLevel = "lp.logLevel"
         static let onboardingCompleted = "lp.onboardingCompleted"
+        static let launchAtLogin = "lp.launchAtLogin"
     }
 
     static let defaultExcludedApps: Set<String> = [
@@ -58,6 +60,9 @@ final class Preferences: ObservableObject {
     @Published var onboardingCompleted: Bool {
         didSet { defaults.set(onboardingCompleted, forKey: Key.onboardingCompleted) }
     }
+    @Published var launchAtLogin: Bool {
+        didSet { defaults.set(launchAtLogin, forKey: Key.launchAtLogin) }
+    }
 
     private init() {
         self.enabled = defaults.object(forKey: Key.enabled) as? Bool ?? true
@@ -70,5 +75,6 @@ final class Preferences: ObservableObject {
         self.autoDismissSeconds = defaults.object(forKey: Key.autoDismissSeconds) as? Double ?? 8.0
         self.logLevel = defaults.string(forKey: Key.logLevel) ?? "Basic"
         self.onboardingCompleted = defaults.object(forKey: Key.onboardingCompleted) as? Bool ?? false
+        self.launchAtLogin = defaults.object(forKey: Key.launchAtLogin) as? Bool ?? false
     }
 }

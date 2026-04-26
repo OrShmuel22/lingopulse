@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import ServiceManagement
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBar: MenuBarController?
@@ -54,11 +55,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        applyLaunchAtLogin(prefs.launchAtLogin)
+        prefs.$launchAtLogin
+            .dropFirst()
+            .sink { [weak self] enabled in self?.applyLaunchAtLogin(enabled) }
+            .store(in: &prefsObservers)
+
         Log.info("app launched, menu bar ready, hotkeys registered.")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         Log.info("shutting down.")
+    }
+
+    private func applyLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            Log.error("SMAppService \(enabled ? "register" : "unregister") failed: \(error)")
+        }
     }
 
     @MainActor private func observeRebinds(coordinator: AppCoordinator) {

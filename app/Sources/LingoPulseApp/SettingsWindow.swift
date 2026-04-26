@@ -42,6 +42,7 @@ private struct GeneralTab: View {
     var body: some View {
         Form {
             Toggle("Enabled (live suggestions)", isOn: $prefs.enabled)
+            Toggle("Launch at login", isOn: $prefs.launchAtLogin)
             HStack {
                 TextField("Daemon URL", text: $prefs.daemonURL)
                 Button("Test") {
