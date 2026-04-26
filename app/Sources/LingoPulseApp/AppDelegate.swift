@@ -82,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let monitor = LiveTextMonitor(
                 fixer: fixer,
                 excludedApps: { [weak prefs] in prefs?.liveModeExcludedApps ?? [] },
+                debounceSeconds: { [weak prefs] in prefs?.debounceSeconds ?? 1.5 },
                 onSuggestion: { [weak self] suggestion in
                     self?.ghostOverlay?.show(suggestion: suggestion, onApply: {
                         self?.applyLiveSuggestion(suggestion)

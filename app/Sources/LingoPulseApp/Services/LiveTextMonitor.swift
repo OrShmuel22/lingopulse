@@ -20,12 +20,16 @@ final class LiveTextMonitor {
     private var focusedElement: AXUIElement?
     private(set) var debounceTask: Task<Void, Never>?
 
-    private let debounceMs: Int = 800
+    private let debounceSeconds: () -> Double
     private let excludedApps: () -> Set<String>
 
-    init(fixer: Fixer, excludedApps: @escaping () -> Set<String>, onSuggestion: @escaping (LiveSuggestion) -> Void) {
+    init(fixer: Fixer,
+         excludedApps: @escaping () -> Set<String>,
+         debounceSeconds: @escaping () -> Double,
+         onSuggestion: @escaping (LiveSuggestion) -> Void) {
         self.fixer = fixer
         self.excludedApps = excludedApps
+        self.debounceSeconds = debounceSeconds
         self.onSuggestion = onSuggestion
     }
 
@@ -103,8 +107,9 @@ final class LiveTextMonitor {
 
     func scheduleDebouncedRefine() {
         debounceTask?.cancel()
+        let ms = max(100, Int(debounceSeconds() * 1000))
         debounceTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(debounceMs))
+            try? await Task.sleep(for: .milliseconds(ms))
             guard !Task.isCancelled else { return }
             await runRefine()
         }

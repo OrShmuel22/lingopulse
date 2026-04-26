@@ -36,6 +36,7 @@ import Foundation
         let monitor = LiveTextMonitor(
             fixer: makeFixer(),
             excludedApps: { [] },
+            debounceSeconds: { 1.5 },
             onSuggestion: { _ in }
         )
 
@@ -63,6 +64,7 @@ import Foundation
         let monitor = LiveTextMonitor(
             fixer: makeFixer(),
             excludedApps: { ["Slack"] },
+            debounceSeconds: { 1.5 },
             onSuggestion: { _ in }
         )
 
