@@ -7,7 +7,6 @@ CONFIG="${1:-release}"
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$APP_DIR"
 
-# Build the app bundle first (which embeds the IME bundle inside)
 echo "==> Building app bundle ($CONFIG)..."
 ./scripts/build-bundle.sh "$CONFIG"
 
@@ -29,7 +28,7 @@ cat > "$STAGING/Read Me.txt" <<EOF
 LingoPulse — local English refinement tool
 
 To install: drag LingoPulse to the Applications folder.
-First launch: macOS will prompt for Accessibility and Input Method permissions.
+First launch: macOS will prompt for Accessibility permission.
 
 For source + docs: see https://github.com/your-org/lingopulse
 EOF

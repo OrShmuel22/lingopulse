@@ -7,9 +7,9 @@ import ServiceManagement
 final class Preferences: ObservableObject {
     static let shared = Preferences()
 
-    /// App Group suite shared with the LingoPulseIME bundle.
-    /// Falls back to UserDefaults.standard if the group container is unavailable
-    /// (e.g. during unit tests running outside a signed app context).
+    /// App Group suite. Falls back to UserDefaults.standard if the group
+    /// container is unavailable (e.g. during unit tests running outside a
+    /// signed app context).
     static let appGroupID = "group.com.lingopulse.shared"
 
     private let defaults: UserDefaults = {
