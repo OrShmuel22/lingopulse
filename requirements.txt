@@ -1,4 +1,0 @@
-# stdlib-only for runtime; pytest for tests only
-
-# dev
-pytest
