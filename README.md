@@ -1,196 +1,144 @@
 # LingoPulse
 
-LingoPulse is a local, private English refinement tool for macOS power users. It provides instant text correction and word lookup via global hotkeys, with context-aware tone adjustment based on the active app. Runs entirely offline on Apple Silicon via Ollama + Gemma 3 1B (QAT).
+Local, private English refinement for macOS. One menu-bar app. Six global hotkeys. Optional live-typing mode. Runs entirely offline on Apple Silicon via Ollama + Gemma 3 1B (QAT).
 
 ---
 
 ## Requirements
 
 - macOS 14+ (tested on M4 Air)
-- Python 3.11+ (3.12 recommended)
-- Ollama
-- Node.js
-- Raycast
-- Homebrew (to install the above)
+- Apple Silicon
+- [Ollama](https://ollama.com)
 
 ---
 
 ## Install
 
 ```bash
-# Prerequisites (one-time)
-brew install --cask raycast
-brew install ollama node
+# 1. Install Ollama (one-time)
+brew install ollama
 brew services start ollama
 
-# Install LingoPulse
-git clone <repo-url> ~/Projects/lingopluse
-cd ~/Projects/lingopluse
-python3 -m venv .venv
-.venv/bin/pip install -e .
-./scripts/install.sh          # pulls gemma3:1b-it-qat, installs LaunchAgents (daemon + keep-alive)
+# 2. Pull the model (one-time, ~800MB)
+ollama pull gemma3:1b-it-qat
 
-# Register the Raycast extension (one-time)
-cd extension
-npm ci
-npm run dev
-# Leave this running — Raycast picks up the extension in dev mode.
-# The six LingoPulse commands appear in Raycast automatically.
+# 3. Open LingoPulse.app
+open ~/Downloads/LingoPulse.dmg     # or wherever you put the DMG
+# Drag LingoPulse to Applications
+open /Applications/LingoPulse.app
+
+# 4. Grant Accessibility when prompted, then click "I Granted — Restart LingoPulse"
 ```
 
----
-
-## Hotkey Setup
-
-In Raycast → Extensions → find LingoPulse → assign hotkeys for each of the six commands:
-
-| Hotkey | Command |
-|--------|---------|
-| ⌘⌥E | Refine Selection |
-| ⌘⌥⇧E | Refine Selection (Preview) |
-| ⌘⌥Z | Undo Refinement |
-| ⌘⌥T | Refine with Tone |
-| ⌘⌥S | Find a Word |
-| ⌘⌥M | Save as Style Example |
+That's it. No terminal, no Python, no LaunchAgents.
 
 ---
 
-## Accessibility
+## Hotkeys (default)
 
-First hotkey press will prompt: "Raycast wants to control your computer using Accessibility." Click Open System Settings → toggle Raycast ON. **This is one-time, per-Mac.** Unlike v1, no per-binary grant is needed.
+| Hotkey  | Command                |
+|---------|------------------------|
+| ⌘⌥E    | Refine selection       |
+| ⌘⌥⇧E   | Refine — Preview first |
+| ⌘⌥Z    | Undo last refinement   |
+| ⌘⌥T    | Refine with chosen tone |
+| ⌘⌥S    | Find a word (dictionary) |
+| ⌘⌥M    | Save selection as style example |
+
+Rebind any of these via Settings → Hotkeys.
+
+---
+
+## Live Mode (optional, default OFF)
+
+Settings → Live Mode → Enable. While typing in any AX-aware text field, LingoPulse refines after you pause for 800ms and offers an inline overlay. Apply with Enter, dismiss with Esc. 1Password and terminals are excluded by default.
+
+---
+
+## Daily flow
+
+Select text, press ⌘⌥E. Bad rewrite? ⌘⌥Z. Want a specific tone? ⌘⌥T. Don't know the English word? Type a description in any language, ⌘⌥S.
 
 ---
 
 ## Config
 
-Config lives at `~/.config/lingopulse/config.json`. Missing keys fall back to built-in defaults — you only need to include what you want to override.
+`~/.config/lingopulse/config.json` is the source of truth. Defaults are sensible — only override what you want to change.
 
-Default tone mappings (from `lingopulse/config.py`):
-
-| App | Default tone |
-|-----|-------------|
-| Slack, Discord, Messages | Casual |
-| Mail, Outlook, Linear | Professional |
-| Cursor, VS Code | auto (Technical if code context detected) |
-| Notes | Neutral |
-| Everything else | Neutral |
-
-For detailed config schemas see:
-- `docs/product/fixer-tone-context.md` — tone detection and `app_map`
-- `docs/product/fixer-performance.md` — keepalive, timeout tuning
-- `docs/product/fixer-undo.md` — ring buffer config
-- `docs/product/dictionary-correctness.md` — dictionary model config
+User data:
+- `~/.config/lingopulse/history.jsonl` — every refinement (audit log)
+- `~/.config/lingopulse/style_examples.jsonl` — captured style examples
+- `~/.cache/lingopulse/ring.json` — last 5 refines for undo
 
 ---
 
 ## Architecture
 
-LingoPulse v2 has two parts:
-- **Python daemon** (`lingopulse.daemon`) — a localhost HTTP server at 127.0.0.1:17823 wrapping Ollama + prompt building + ring buffer + history. Runs as a LaunchAgent.
-- **Raycast extension** (`extension/`) — TypeScript UI that calls the daemon. Installed via `npm run dev`.
+Single Swift menu-bar app at `app/`. In-process: Ollama HTTP client, prompt building, ring buffer, history, AX text monitor (Live Mode). No daemon. No Python. No Raycast.
 
-Config.json at `~/.config/lingopulse/config.json` is the source of truth; the extension reads it via the daemon's `/config` endpoint.
+```
+app/Sources/LingoPulseApp/
+  Services/        # OllamaService, Fixer, AppConfig, Prompts, Protection,
+                   # HistoryStore, RingBuffer, ToneOverrides, AccessibilityService,
+                   # SelectionService, ClipboardService, Dictionary,
+                   # StyleExamplesStore, LiveTextMonitor, CaretLocator
+  Commands/        # Refine, Undo, Preview, Tone, Dictionary, CaptureStyle
+  Views/           # PreviewPanel, TonePickerPanel, DictionaryPanel,
+                   # UndoFallbackPanel, GhostOverlayWindow
+  AppDelegate, AppCoordinator, HotkeyManager, MenuBarController,
+  SettingsWindow, OnboardingWindow, Preferences, ...
+docs/product/      # decision records
+```
 
 ---
 
-## Daily Flow
+## Build from source
 
-Select text, press ⌘⌥E. If the rewrite is bad, press ⌘⌥Z. When you want a specific tone, press ⌘⌥T. When you don't know the English word, press ⌘⌥S.
+```bash
+cd app
+swift build --configuration release
+./scripts/build-bundle.sh release    # produces app/LingoPulse.app
+./scripts/build-dmg.sh release        # produces app/LingoPulse-<version>.dmg
+```
 
 ---
 
-## Migration to a New Mac
+## Migrate from a v1 install (Python + Raycast)
 
-Copy these files and re-run `./scripts/install.sh`:
+Run once, then forget v1:
 
+```bash
+launchctl bootout "gui/$(id -u)/com.lingopulse.warmup" 2>/dev/null
+launchctl bootout "gui/$(id -u)/com.lingopulse.keepalive" 2>/dev/null
+launchctl bootout "gui/$(id -u)/com.lingopulse.daemon" 2>/dev/null
+rm -f ~/Library/LaunchAgents/com.lingopulse.*.plist
+launchctl unsetenv OLLAMA_KEEP_ALIVE 2>/dev/null
 ```
-~/.config/lingopulse/config.json
-~/.config/lingopulse/history.jsonl
+
+Your `~/.config/lingopulse/` data carries over verbatim.
+
+---
+
+## Honest limits
+
+- Hebrew dictionary uses Gemma 3 1B (QAT) — strong but not perfect on rare words
+- Live Mode does not fire in iTerm/Terminal/etc. — they don't expose AX text
+- Apple Intelligence Writing Tools is NOT used (no Hebrew support as of macOS 26.1)
+
+---
+
+## Tests
+
+```bash
+cd app
+swift test     # 96 unit tests
 ```
-
-Note: `tone_overrides.json` is no longer needed — per-app tone memory moved to Raycast's LocalStorage.
-
-Do NOT copy `~/.cache/lingopulse/` — it is session state and regenerates automatically.
 
 ---
 
 ## Uninstall
 
 ```bash
-./scripts/uninstall.sh
+rm -rf /Applications/LingoPulse.app
+rm -rf ~/.config/lingopulse ~/.cache/lingopulse
 ```
-
-Removes LaunchAgents. Preserves all user data under `~/.config/lingopulse/`.
-
----
-
-## Troubleshooting
-
-**"Refinement timed out"**
-Ollama may be loading the model cold. Run `ollama ps` — it should show `gemma3:1b-it-qat`. If the model is not listed, run `./scripts/warmup_ping.sh` to reload it. Logs at `~/Library/Logs/lingopulse-warmup.log`.
-
-**Daemon not reachable**
-Check `~/Library/Logs/lingopulse-daemon.log`. Verify `curl -sf http://127.0.0.1:17823/status` returns a response. If Ollama is down, run `brew services restart ollama`.
-
-**Undo panel appears instead of direct undo**
-You clicked away after the refinement and the refined text is no longer selected. Manually re-select the text you want to revert, then press ⌘⌥Z.
-
-**Clipboard images or files are clobbered**
-LingoPulse preserves text-only clipboard content. Non-text items (images, files) are not preserved.
-
----
-
-## Honest Limitations
-
-- The Dictionary uses Gemma 3 1B (QAT) — strong for English but can silently mistranslate Hebrew queries. See `docs/product/dictionary-correctness.md` for the revisit criteria (upgrade to Qwen 7B if picked_index >= 1 rate stays high).
-- Undo requires the refined text to still be selected; otherwise the fallback panel activates.
-
----
-
-## Project Structure
-
-```
-extension/           # Raycast Extension (TypeScript)
-  src/
-    refine.tsx       # ⌘⌥E
-    undo.tsx         # ⌘⌥Z
-    preview.tsx      # ⌘⌥⇧E
-    tone-picker.tsx  # ⌘⌥T
-    dictionary.tsx   # ⌘⌥S
-    capture-style.tsx # ⌘⌥M
-lingopulse/          # Python package (core library)
-  config.py          # config loader + defaults
-  history.py         # jsonl log
-  ollama_client.py   # Ollama HTTP + concurrency lock
-  clipboard.py       # text-only save/restore
-  protection.py      # URL/code-block regex protection
-  apps.py            # frontmost + selection + paste via osascript
-  ring_buffer.py     # 5-slot undo buffer
-  hud.py             # macOS notifications + diff rendering
-  prompts.py         # tone table + Fixer prompt template + Cursor heuristic
-  dictionary.py      # Hebrew detection + JSON parsing
-  fixer.py           # unified refine() entry point
-  daemon.py          # localhost HTTP server (port 17823)
-scripts/
-  install.sh         # idempotent installer
-  uninstall.sh
-  warmup_ping.sh     # Ollama keep-alive ping
-launch_agents/       # plist templates
-  com.lingopulse.warmup.plist.template
-  com.lingopulse.keepalive.plist.template
-  com.lingopulse.daemon.plist.template
-docs/product/        # decision records (read these for context)
-tests/               # pytest suite (116 tests)
-```
-
----
-
-## Contributing / Dev
-
-Run the test suite:
-
-```bash
-.venv/bin/python -m pytest tests/
-```
-
-Product decisions are logged in `docs/product/`.
