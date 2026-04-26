@@ -158,33 +158,24 @@ private struct OnboardingView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 40)
             } else {
-                Text("LingoPulse needs Accessibility access to read and correct text in other apps.\n\nClick the button below to open System Settings. In the Privacy & Security → Accessibility pane, enable LingoPulse.")
+                Text("LingoPulse needs Accessibility access to read and correct text.\n\nStep 1: Open System Settings → Privacy & Security → Accessibility. Toggle LingoPulse ON.\nStep 2: Restart LingoPulse so the new permission takes effect (macOS caches this per-process).")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 40)
+                    .padding(.horizontal, 32)
+                    .font(.callout)
 
-                Button("Grant Access in System Settings") {
-                    requestAXAccess()
-                }
-                .buttonStyle(.borderedProminent)
-
-                if axPollSecondsElapsed >= 8 {
-                    VStack(spacing: 6) {
-                        Text("Already granted but stuck here?")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                        Text("macOS caches Accessibility trust per-process at launch. Restart LingoPulse to apply.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                        Button("Restart LingoPulse") {
-                            relaunchApp()
-                        }
-                        .buttonStyle(.bordered)
+                HStack(spacing: 10) {
+                    Button("Open System Settings") {
+                        requestAXAccess()
                     }
-                    .padding(.top, 8)
+                    .buttonStyle(.bordered)
+
+                    Button("I Granted — Restart LingoPulse") {
+                        relaunchApp()
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
+                .padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

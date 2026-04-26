@@ -5,6 +5,7 @@ final class MenuBarController: NSObject {
     private let coordinator: AppCoordinator
     private var personalDictWindow: PersonalDictWindowController?
     private var settingsWindow: SettingsWindowController?
+    private var onboardingWindow: OnboardingWindow?
 
     init(coordinator: AppCoordinator) {
         self.coordinator = coordinator
@@ -26,6 +27,7 @@ final class MenuBarController: NSObject {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Personal Dictionary…", action: #selector(openPersonalDict), keyEquivalent: "d"))
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: "Setup / Onboarding…", action: #selector(openOnboarding), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit LingoPulse", action: #selector(quit), keyEquivalent: "q"))
 
@@ -56,6 +58,16 @@ final class MenuBarController: NSObject {
             settingsWindow = SettingsWindowController(daemon: coordinator.daemonClient)
         }
         settingsWindow?.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @MainActor @objc private func openOnboarding() {
+        if onboardingWindow == nil {
+            onboardingWindow = OnboardingWindow()
+        }
+        onboardingWindow?.show(onComplete: { [weak self] in
+            self?.onboardingWindow = nil
+        })
         NSApp.activate(ignoringOtherApps: true)
     }
 
