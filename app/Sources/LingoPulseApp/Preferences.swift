@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import Carbon.HIToolbox
 import ServiceManagement
 
 @MainActor
@@ -18,8 +17,6 @@ final class Preferences: ObservableObject {
 
     private enum Key {
         static let enabled = "lp.enabled"
-        static let hotkeyKeyCode = "lp.hotkey.keyCode"
-        static let hotkeyModifiers = "lp.hotkey.modifiers"
         static let daemonURL = "lp.daemon.url"
         static let excludedApps = "lp.excludedApps"
         static let debounceSeconds = "lp.debounceSeconds"
@@ -35,12 +32,6 @@ final class Preferences: ObservableObject {
 
     @Published var enabled: Bool {
         didSet { defaults.set(enabled, forKey: Key.enabled) }
-    }
-    @Published var hotkeyKeyCode: Int {
-        didSet { defaults.set(hotkeyKeyCode, forKey: Key.hotkeyKeyCode) }
-    }
-    @Published var hotkeyModifiers: UInt32 {
-        didSet { defaults.set(Int(hotkeyModifiers), forKey: Key.hotkeyModifiers) }
     }
     @Published var daemonURL: String {
         didSet { defaults.set(daemonURL, forKey: Key.daemonURL) }
@@ -66,8 +57,6 @@ final class Preferences: ObservableObject {
 
     private init() {
         self.enabled = defaults.object(forKey: Key.enabled) as? Bool ?? true
-        self.hotkeyKeyCode = defaults.object(forKey: Key.hotkeyKeyCode) as? Int ?? Int(kVK_ANSI_G)
-        self.hotkeyModifiers = UInt32(defaults.object(forKey: Key.hotkeyModifiers) as? Int ?? Int(cmdKey | optionKey))
         self.daemonURL = defaults.string(forKey: Key.daemonURL) ?? "http://127.0.0.1:17823"
         let savedExcluded = defaults.array(forKey: Key.excludedApps) as? [String]
         self.excludedApps = Set(savedExcluded ?? Array(Self.defaultExcludedApps))

@@ -34,6 +34,12 @@ final class AppCoordinator {
         handleSelection(selection, manual: true)
     }
 
+    func undoLast()            { Log.info("undo: not implemented yet") }
+    func previewSelection()    { Log.info("preview: not implemented yet") }
+    func refineWithTone()      { Log.info("tone: not implemented yet") }
+    func lookupWord()          { Log.info("dictionary: not implemented yet") }
+    func captureStyleExample() { Log.info("captureStyle: not implemented yet") }
+
     func fetchStatusAndShowAlert() {
         Task { @MainActor in
             do {

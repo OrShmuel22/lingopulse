@@ -38,13 +38,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.coordinator = coordinator
 
         self.menuBar = MenuBarController(coordinator: coordinator)
-        self.hotkeys = HotkeyManager(
-            coordinator: coordinator,
-            keyCode: UInt32(prefs.hotkeyKeyCode),
-            modifiers: prefs.hotkeyModifiers
-        )
+        self.hotkeys = HotkeyManager(coordinator: coordinator)
 
-        observeRebinds(coordinator: coordinator)
+        prefs.$daemonURL
+            .dropFirst()
+            .sink { newURL in
+                if let u = URL(string: newURL) {
+                    coordinator.updateDaemonURL(u)
+                }
+            }
+            .store(in: &prefsObservers)
 
         if !prefs.onboardingCompleted {
             let onboarding = OnboardingWindow()
@@ -80,22 +83,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @MainActor private func observeRebinds(coordinator: AppCoordinator) {
-        let prefs = Preferences.shared
-        prefs.$hotkeyKeyCode.combineLatest(prefs.$hotkeyModifiers)
-            .dropFirst()
-            .sink { [weak self] kc, mods in
-                self?.hotkeys?.rebind(keyCode: UInt32(kc), modifiers: mods)
-            }
-            .store(in: &prefsObservers)
-
-        prefs.$daemonURL
-            .dropFirst()
-            .sink { newURL in
-                if let u = URL(string: newURL) {
-                    coordinator.updateDaemonURL(u)
-                }
-            }
-            .store(in: &prefsObservers)
-    }
 }
