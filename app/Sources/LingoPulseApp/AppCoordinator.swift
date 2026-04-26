@@ -83,8 +83,14 @@ final class AppCoordinator {
         let cmd = UndoCommand(ring: fixer.ring, accessibility: accessibility)
         Task { @MainActor in await cmd.execute() }
     }
-    func previewSelection()    { Log.info("preview: not implemented yet") }
-    func refineWithTone()      { Log.info("tone: not implemented yet") }
+    func previewSelection() {
+        let cmd = PreviewCommand(fixer: fixer, accessibility: accessibility)
+        Task { @MainActor in await cmd.execute() }
+    }
+    func refineWithTone() {
+        let cmd = ToneCommand(fixer: fixer, accessibility: accessibility)
+        Task { @MainActor in await cmd.execute() }
+    }
     func lookupWord() {
         let cmd = DictionaryCommand(ollama: fixer.ollama, config: fixer.config, accessibility: accessibility)
         Task { @MainActor in await cmd.execute() }
