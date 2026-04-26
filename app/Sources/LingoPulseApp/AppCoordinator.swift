@@ -4,27 +4,12 @@ import ApplicationServices
 @MainActor
 final class AppCoordinator {
     let fixer: Fixer
-    let daemonClient: DaemonClient
     private let accessibility: AccessibilityServicing
-    private let pipeline: SuggestionPipelining
-    private let reviewPresenter: ReviewPresenting
-    private let toast = AffirmationToast()
-    private var lastDaemonDownNotice: Date?
     private var currentRefineTask: Task<Void, Never>?
 
-    init(fixer: Fixer, daemon: DaemonClient, accessibility: AccessibilityServicing,
-         pipeline: SuggestionPipelining, reviewPresenter: ReviewPresenting) {
+    init(fixer: Fixer, accessibility: AccessibilityServicing) {
         self.fixer = fixer
-        self.daemonClient = daemon
         self.accessibility = accessibility
-        self.pipeline = pipeline
-        self.reviewPresenter = reviewPresenter
-    }
-
-    func updateDaemonURL(_ url: URL) { Log.info("daemon URL updated to \(url) — restart app to apply") }
-
-    func fetchStatusAndShowAlert() {
-        Log.info("fetchStatusAndShowAlert: daemon status check not wired in-process yet")
     }
 
     func refineFocusedSelection() {

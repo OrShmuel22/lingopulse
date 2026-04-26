@@ -24,11 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { Log.setLevel($0) }
             .store(in: &prefsObservers)
 
-        let url = URL(string: prefs.daemonURL) ?? Constants.Daemon.defaultURL
-        let daemon = DaemonClient(baseURL: url)
         let accessibility = AccessibilityService()
-        let pipeline = SuggestionPipeline(daemon: daemon)
-        let presenter = ReviewPresenter()
 
         let config = AppConfig.shared
         let ollama = OllamaService()
@@ -40,26 +36,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let ring = RingBuffer(fileURL: ringPath, size: ringSize)
         let fixer = Fixer(ollama: ollama, config: config, history: history, ring: ring)
 
-        let coordinator = AppCoordinator(
-            fixer: fixer,
-            daemon: daemon,
-            accessibility: accessibility,
-            pipeline: pipeline,
-            reviewPresenter: presenter
-        )
+        let coordinator = AppCoordinator(fixer: fixer, accessibility: accessibility)
         self.coordinator = coordinator
 
         self.menuBar = MenuBarController(coordinator: coordinator)
         self.hotkeys = HotkeyManager(coordinator: coordinator)
-
-        prefs.$daemonURL
-            .dropFirst()
-            .sink { newURL in
-                if let u = URL(string: newURL) {
-                    coordinator.updateDaemonURL(u)
-                }
-            }
-            .store(in: &prefsObservers)
 
         if !prefs.onboardingCompleted {
             let onboarding = OnboardingWindow()

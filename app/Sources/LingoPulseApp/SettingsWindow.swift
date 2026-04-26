@@ -3,8 +3,8 @@ import KeyboardShortcuts
 import SwiftUI
 
 final class SettingsWindowController: NSWindowController {
-    convenience init(daemon: DaemonClient) {
-        let host = NSHostingController(rootView: SettingsView(daemon: daemon))
+    convenience init() {
+        let host = NSHostingController(rootView: SettingsView())
         let window = NSWindow(contentViewController: host)
         window.title = "LingoPulse — Settings"
         window.styleMask = [.titled, .closable, .miniaturizable]
@@ -15,12 +15,11 @@ final class SettingsWindowController: NSWindowController {
 }
 
 struct SettingsView: View {
-    let daemon: DaemonClient
     @ObservedObject private var prefs = Preferences.shared
 
     var body: some View {
         TabView {
-            GeneralTab(prefs: prefs, daemon: daemon)
+            GeneralTab(prefs: prefs)
                 .tabItem { Label("General", systemImage: "gearshape") }
             HotkeyTab()
                 .tabItem { Label("Hotkeys", systemImage: "command") }
@@ -70,31 +69,11 @@ private struct HotkeyTab: View {
 
 private struct GeneralTab: View {
     @ObservedObject var prefs: Preferences
-    let daemon: DaemonClient
-    @State private var statusMessage: String = ""
 
     var body: some View {
         Form {
             Toggle("Enabled (live suggestions)", isOn: $prefs.enabled)
             Toggle("Launch at login", isOn: $prefs.launchAtLogin)
-            HStack {
-                TextField("Daemon URL", text: $prefs.daemonURL)
-                Button("Test") {
-                    Task { await test() }
-                }
-            }
-            if !statusMessage.isEmpty {
-                Text(statusMessage).font(.caption).foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private func test() async {
-        do {
-            let s = try await daemon.status()
-            statusMessage = "OK · model=\(s.model) loaded=\(s.model_loaded)"
-        } catch {
-            statusMessage = "Failed: \(error)"
         }
     }
 }

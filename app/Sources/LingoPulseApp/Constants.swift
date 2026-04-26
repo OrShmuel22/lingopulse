@@ -23,10 +23,6 @@ enum Constants {
         static let reviewPanelWidth: CGFloat = 540
         static let reviewPanelHeight: CGFloat = 400
     }
-    enum Daemon {
-        static let defaultURL = URL(string: "http://127.0.0.1:17823")!
-        static let timeoutSeconds: TimeInterval = 60
-    }
     enum Refine {
         static let minWordsForLiveTrigger: Int = 3
     }
