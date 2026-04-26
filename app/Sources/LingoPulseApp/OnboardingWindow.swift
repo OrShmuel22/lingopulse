@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import ApplicationServices
 
 // MARK: - OnboardingWindow
 
@@ -45,6 +46,8 @@ private struct OnboardingView: View {
     @State private var step: Int = 0
     @State private var installError: String? = nil
     @State private var installing: Bool = false
+    @State private var axGranted: Bool = AXIsProcessTrusted()
+    @State private var axPollTimer: Timer? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -53,6 +56,16 @@ private struct OnboardingView: View {
             navigationBar
         }
         .frame(width: 540, height: 420)
+        .onChange(of: step) { _, newStep in
+            if newStep == 2 {
+                startAXPolling()
+            } else {
+                stopAXPolling()
+            }
+        }
+        .onDisappear {
+            stopAXPolling()
+        }
     }
 
     // MARK: Step content
@@ -62,7 +75,7 @@ private struct OnboardingView: View {
         switch step {
         case 0:  welcomeStep
         case 1:  installStep
-        case 2:  activateStep
+        case 2:  accessibilityStep
         case 3:  doneStep
         default: welcomeStep
         }
@@ -78,7 +91,7 @@ private struct OnboardingView: View {
                 .foregroundStyle(Color.accentColor)
             Text("Welcome to LingoPulse")
                 .font(.largeTitle.bold())
-            Text("LingoPulse corrects your writing as you type — in any app, in any language.\n\nThis quick setup installs the input method and adds it to macOS Keyboard settings.")
+            Text("LingoPulse corrects your writing as you type — in any app, in any language.\n\nThis quick setup installs the input method and grants the permissions it needs.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 40)
@@ -96,7 +109,7 @@ private struct OnboardingView: View {
                 .foregroundStyle(Color.accentColor)
             Text("Install Input Method")
                 .font(.title.bold())
-            Text("LingoPulse will copy the input method bundle into\n~/Library/Input Methods/ so macOS can load it.")
+            Text("LingoPulse will copy the input method bundle into\n~/Library/Input Methods/ and enable it automatically.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 40)
@@ -125,25 +138,35 @@ private struct OnboardingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // Step 2 — Activate in System Settings
-    private var activateStep: some View {
+    // Step 2 — Accessibility permission (with scoped AX-grant polling)
+    private var accessibilityStep: some View {
         VStack(spacing: 20) {
-            Image(systemName: "keyboard")
+            Image(systemName: axGranted ? "checkmark.shield.fill" : "hand.raised")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 56, height: 56)
-                .foregroundStyle(Color.accentColor)
-            Text("Enable in Keyboard Settings")
-                .font(.title.bold())
-            Text("Open System Settings → Keyboard → Input Sources, then tap \"+\" and add LingoPulse.")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 40)
+                .foregroundStyle(axGranted ? Color.green : Color.accentColor)
+                .animation(.easeInOut(duration: 0.2), value: axGranted)
 
-            Button("Open Keyboard Settings") {
-                openKeyboardSettings()
+            Text("Allow Accessibility Access")
+                .font(.title.bold())
+
+            if axGranted {
+                Text("Accessibility access granted. LingoPulse can now read and correct your text in any app.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 40)
+            } else {
+                Text("LingoPulse needs Accessibility access to read and correct text in other apps.\n\nClick the button below to open System Settings. In the Privacy & Security → Accessibility pane, enable LingoPulse.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 40)
+
+                Button("Grant Access in System Settings") {
+                    requestAXAccess()
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -189,7 +212,7 @@ private struct OnboardingView: View {
             if step < 3 {
                 Button("Next") { step += 1 }
                     .buttonStyle(.borderedProminent)
-                    .disabled(step == 1 && installError == nil && !IMEInstaller().isInstalled)
+                    .disabled(nextDisabled)
             } else {
                 Button("Finish") { onComplete() }
                     .buttonStyle(.borderedProminent)
@@ -197,6 +220,14 @@ private struct OnboardingView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
+    }
+
+    private var nextDisabled: Bool {
+        switch step {
+        case 1: return installError == nil && !IMEInstaller().isInstalled
+        case 2: return !axGranted
+        default: return false
+        }
     }
 
     // MARK: Actions
@@ -207,7 +238,10 @@ private struct OnboardingView: View {
         Task { @MainActor in
             defer { installing = false }
             do {
-                try IMEInstaller().install()
+                let installer = IMEInstaller()
+                try installer.install()
+                let (regStatus, enableStatus) = installer.enableViaTIS()
+                Log.info("TIS register=\(regStatus) enable=\(enableStatus)")
                 step += 1
             } catch {
                 installError = error.localizedDescription
@@ -215,9 +249,44 @@ private struct OnboardingView: View {
         }
     }
 
-    private func openKeyboardSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension?InputSources") {
-            NSWorkspace.shared.open(url)
+    /// Prompts the user for AX permission using the scoped
+    /// `kAXTrustedCheckOptionPrompt` option.  macOS will open System Settings
+    /// → Privacy & Security → Accessibility if the process is not yet trusted.
+    private func requestAXAccess() {
+        let opts: NSDictionary = [
+            kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true
+        ]
+        _ = AXIsProcessTrustedWithOptions(opts)
+    }
+
+    // MARK: AX polling
+
+    /// Starts a 1-second repeating timer that checks `AXIsProcessTrusted()`.
+    /// When the user grants access the timer fires, sets `axGranted = true`,
+    /// and auto-advances to the done step.
+    private func startAXPolling() {
+        guard axPollTimer == nil else { return }
+        axGranted = AXIsProcessTrusted()
+        if axGranted {
+            step += 1
+            return
         }
+        axPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            Task { @MainActor in
+                let trusted = AXIsProcessTrusted()
+                if trusted && !axGranted {
+                    axGranted = true
+                    stopAXPolling()
+                    // Brief pause so the user sees the granted state before advancing.
+                    try? await Task.sleep(for: .milliseconds(600))
+                    step += 1
+                }
+            }
+        }
+    }
+
+    private func stopAXPolling() {
+        axPollTimer?.invalidate()
+        axPollTimer = nil
     }
 }
