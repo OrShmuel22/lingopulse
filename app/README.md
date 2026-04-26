@@ -36,8 +36,16 @@ Ad-hoc signing lets Accessibility permission persist across rebuilds without re-
 
 ### IME registration
 
-1. System Settings → Keyboard → Input Sources → add "LingoPulse"
-2. Set LingoPulse as the active input source in your desired apps
+The LingoPulseIME bundle is installed to `~/Library/Input Methods/`. macOS only scans this directory **at login**, so the first install requires a logout/login cycle. This matches how Squirrel/RIME, Fcitx5-mac, and other ad-hoc-signed open-source IMEs ship.
+
+1. Run `./scripts/build-ime-bundle.sh debug` and copy the produced `LingoPulseIME.app` to `~/Library/Input Methods/` (the onboarding wizard does this automatically)
+2. **Log out and log back in** — required only on first install (or after rebuild changes the bundle's cdhash)
+3. After login: System Settings → Keyboard → Input Sources → `+` → English → **LingoPulse** → Add
+4. Switch to LingoPulse via the input-source picker in the menu bar (top-right globe icon, or ⌃⇧Space)
+
+If LingoPulse doesn't appear in the `+` list, the cause is almost always that `imklaunchagent` hasn't re-scanned. Logout/login is the fix; force-killing `imklaunchagent` from `sudo` works too. Once added the first time, subsequent app updates don't need another logout — just rebuild + replace the bundle.
+
+A future Apple Developer ID + notarization run would let `TISRegisterInputSource` register the bundle without logout. Documented in `docs/DISTRIBUTION.md`.
 
 ### Notifications (optional)
 

@@ -181,22 +181,53 @@ private struct OnboardingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // Step 3 — Done
+    // Step 3 — Done (with logout requirement for first-time IME activation)
     private var doneStep: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "checkmark.seal.fill")
+        VStack(spacing: 16) {
+            Image(systemName: "arrow.uturn.right.circle")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 64, height: 64)
-                .foregroundStyle(.green)
-            Text("You're all set!")
-                .font(.largeTitle.bold())
-            Text("Switch to LingoPulse in the macOS input menu (top-right of the menu bar) to start typing smarter.")
+                .frame(width: 56, height: 56)
+                .foregroundStyle(Color.accentColor)
+            Text("One More Step — Log Out to Activate")
+                .font(.title.bold())
+                .multilineTextAlignment(.center)
+            Text("macOS only scans for new input methods at login. Log out and back in, then:\n\n1. System Settings → Keyboard → Input Sources → +\n2. Add English → LingoPulse\n3. Switch to LingoPulse via the menu bar globe (top-right)")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 40)
+                .padding(.horizontal, 24)
+                .font(.callout)
+
+            HStack(spacing: 10) {
+                Button("Open Input Sources") {
+                    let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension?InputSources")!
+                    NSWorkspace.shared.open(url)
+                }
+                .buttonStyle(.bordered)
+
+                Button("Log Out Now") {
+                    logOutCurrentUser()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding(.top, 4)
+
+            Text("After login, this wizard won't reappear — finish the steps above and you're done.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 30)
+                .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func logOutCurrentUser() {
+        let script = "tell application \"loginwindow\" to «event aevtrlgo»"
+        let task = Process()
+        task.launchPath = "/usr/bin/osascript"
+        task.arguments = ["-e", script]
+        try? task.run()
     }
 
     // MARK: Navigation bar
