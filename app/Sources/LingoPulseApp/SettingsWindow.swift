@@ -27,6 +27,8 @@ struct SettingsView: View {
                 .tabItem { Label("Apps", systemImage: "app.badge") }
             AdvancedTab(prefs: prefs)
                 .tabItem { Label("Advanced", systemImage: "slider.horizontal.3") }
+            LiveModeTab(prefs: prefs)
+                .tabItem { Label("Live Mode", systemImage: "wand.and.stars") }
         }
         .padding(16)
         .frame(minWidth: 520, minHeight: 420)
@@ -108,6 +110,45 @@ private struct AppsTab: View {
             }
             .frame(minHeight: 200)
         }
+    }
+}
+
+private struct LiveModeTab: View {
+    @ObservedObject var prefs: Preferences
+    @State private var newApp: String = ""
+
+    var body: some View {
+        Form {
+            Section("Live Refinement") {
+                Toggle("Enable Live Mode (experimental)", isOn: $prefs.liveModeEnabled)
+                Text("When ON, LingoPulse refines text in any focused field after you pause typing for 800ms. Suggestions appear as a non-intrusive overlay.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Excluded Apps") {
+                Text("Live Mode will not fire in these apps. Password managers and terminals are excluded by default.")
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(Array(prefs.liveModeExcludedApps).sorted(), id: \.self) { name in
+                    HStack {
+                        Text(name)
+                        Spacer()
+                        Button("Remove") {
+                            prefs.liveModeExcludedApps.remove(name)
+                        }
+                    }
+                }
+                HStack {
+                    TextField("Add app name (e.g. Cursor)", text: $newApp)
+                    Button("Add") {
+                        let trimmed = newApp.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !trimmed.isEmpty else { return }
+                        prefs.liveModeExcludedApps.insert(trimmed)
+                        newApp = ""
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .frame(minWidth: 480)
     }
 }
 

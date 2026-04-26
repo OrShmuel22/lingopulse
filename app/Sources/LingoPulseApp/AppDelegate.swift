@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Combine
 import ServiceManagement
 
@@ -8,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: AppCoordinator?
     private var prefsObservers: Set<AnyCancellable> = []
     private var onboardingWindow: OnboardingWindow?
+    private var fixer: Fixer?
+    private var liveMonitor: LiveTextMonitor?
+    private var ghostOverlay: GhostOverlayWindow?
 
     @MainActor func applicationDidFinishLaunching(_ notification: Notification) {
         Notifications.requestAuthorizationIfNeeded()
@@ -35,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let ringSize: Int = config.value(at: "ring_buffer.size") ?? 5
         let ring = RingBuffer(fileURL: ringPath, size: ringSize)
         let fixer = Fixer(ollama: ollama, config: config, history: history, ring: ring)
+        self.fixer = fixer
 
         let coordinator = AppCoordinator(fixer: fixer, accessibility: accessibility)
         self.coordinator = coordinator
@@ -51,6 +56,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        applyLiveMode(prefs.liveModeEnabled, prefs: prefs)
+        prefs.$liveModeEnabled
+            .dropFirst()
+            .sink { [weak self] enabled in self?.applyLiveMode(enabled, prefs: prefs) }
+            .store(in: &prefsObservers)
+
         applyLaunchAtLogin(prefs.launchAtLogin)
         prefs.$launchAtLogin
             .dropFirst()
@@ -62,6 +73,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         Log.info("shutting down.")
+    }
+
+    @MainActor private func applyLiveMode(_ enabled: Bool, prefs: Preferences) {
+        if enabled {
+            guard liveMonitor == nil, let fixer = fixer else { return }
+            if ghostOverlay == nil { ghostOverlay = GhostOverlayWindow() }
+            let monitor = LiveTextMonitor(
+                fixer: fixer,
+                excludedApps: { [weak prefs] in prefs?.liveModeExcludedApps ?? [] },
+                onSuggestion: { [weak self] suggestion in
+                    self?.ghostOverlay?.show(suggestion: suggestion, onApply: {
+                        self?.applyLiveSuggestion(suggestion)
+                    })
+                }
+            )
+            monitor.start()
+            liveMonitor = monitor
+        } else {
+            liveMonitor?.stop()
+            liveMonitor = nil
+            ghostOverlay?.close()
+        }
+    }
+
+    @MainActor private func applyLiveSuggestion(_ s: LiveSuggestion) {
+        let result = AXUIElementSetAttributeValue(s.element, kAXValueAttribute as CFString, s.refined as CFString)
+        if result == .success { return }
+
+        let snap = ClipboardSnapshot()
+        ClipboardService.copy(s.refined)
+        Task { @MainActor in
+            await SelectionService.pasteTextViaShortcut(s.refined)
+            try? await Task.sleep(for: .milliseconds(150))
+            snap.restore()
+        }
     }
 
     private func applyLaunchAtLogin(_ enabled: Bool) {

@@ -24,10 +24,16 @@ final class Preferences: ObservableObject {
         static let logLevel = "lp.logLevel"
         static let onboardingCompleted = "lp.onboardingCompleted"
         static let launchAtLogin = "lp.launchAtLogin"
+        static let liveModeEnabled = "lp.liveModeEnabled"
+        static let liveModeExcludedApps = "lp.liveModeExcludedApps"
     }
 
     static let defaultExcludedApps: Set<String> = [
         "iTerm2", "Terminal", "Alacritty", "WezTerm", "Hyper", "Warp"
+    ]
+
+    static let defaultLiveModeExcludedApps: [String] = [
+        "1Password", "1Password 7", "iTerm2", "Terminal", "Alacritty", "WezTerm", "Hyper", "Warp"
     ]
 
     @Published var enabled: Bool {
@@ -54,6 +60,12 @@ final class Preferences: ObservableObject {
     @Published var launchAtLogin: Bool {
         didSet { defaults.set(launchAtLogin, forKey: Key.launchAtLogin) }
     }
+    @Published var liveModeEnabled: Bool {
+        didSet { defaults.set(liveModeEnabled, forKey: Key.liveModeEnabled) }
+    }
+    @Published var liveModeExcludedApps: Set<String> {
+        didSet { defaults.set(Array(liveModeExcludedApps), forKey: Key.liveModeExcludedApps) }
+    }
 
     private init() {
         self.enabled = defaults.object(forKey: Key.enabled) as? Bool ?? true
@@ -65,5 +77,8 @@ final class Preferences: ObservableObject {
         self.logLevel = defaults.string(forKey: Key.logLevel) ?? "Basic"
         self.onboardingCompleted = defaults.object(forKey: Key.onboardingCompleted) as? Bool ?? false
         self.launchAtLogin = defaults.object(forKey: Key.launchAtLogin) as? Bool ?? false
+        self.liveModeEnabled = defaults.object(forKey: Key.liveModeEnabled) as? Bool ?? false
+        let savedExcl = defaults.array(forKey: Key.liveModeExcludedApps) as? [String]
+        self.liveModeExcludedApps = Set(savedExcl ?? Self.defaultLiveModeExcludedApps)
     }
 }
