@@ -1,4 +1,5 @@
 import AppKit
+import KeyboardShortcuts
 import SwiftUI
 
 final class SettingsWindowController: NSWindowController {
@@ -21,6 +22,8 @@ struct SettingsView: View {
         TabView {
             GeneralTab(prefs: prefs, daemon: daemon)
                 .tabItem { Label("General", systemImage: "gearshape") }
+            HotkeyTab()
+                .tabItem { Label("Hotkeys", systemImage: "command") }
             AppsTab(prefs: prefs)
                 .tabItem { Label("Apps", systemImage: "app.badge") }
             AdvancedTab(prefs: prefs)
@@ -28,6 +31,40 @@ struct SettingsView: View {
         }
         .padding(16)
         .frame(minWidth: 520, minHeight: 420)
+    }
+}
+
+private struct HotkeyTab: View {
+    var body: some View {
+        Form {
+            Section("Commands") {
+                LabeledContent("Refine Selection") {
+                    KeyboardShortcuts.Recorder(for: .refine)
+                }
+                LabeledContent("Refine (Preview)") {
+                    KeyboardShortcuts.Recorder(for: .preview)
+                }
+                LabeledContent("Undo Last Refinement") {
+                    KeyboardShortcuts.Recorder(for: .undo)
+                }
+                LabeledContent("Refine with Tone") {
+                    KeyboardShortcuts.Recorder(for: .tone)
+                }
+                LabeledContent("Find a Word (Dictionary)") {
+                    KeyboardShortcuts.Recorder(for: .dictionary)
+                }
+                LabeledContent("Save as Style Example") {
+                    KeyboardShortcuts.Recorder(for: .captureStyle)
+                }
+            }
+            Section {
+                Button("Reset to Defaults") {
+                    KeyboardShortcuts.reset(.refine, .preview, .undo, .tone, .dictionary, .captureStyle)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .frame(minWidth: 480)
     }
 }
 
