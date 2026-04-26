@@ -79,9 +79,19 @@ final class AppCoordinator {
         }
     }
 
-    func undoLast()            { Log.info("undo: not implemented yet") }
+    func undoLast() {
+        let cmd = UndoCommand(ring: fixer.ring, accessibility: accessibility)
+        Task { @MainActor in await cmd.execute() }
+    }
     func previewSelection()    { Log.info("preview: not implemented yet") }
     func refineWithTone()      { Log.info("tone: not implemented yet") }
-    func lookupWord()          { Log.info("dictionary: not implemented yet") }
-    func captureStyleExample() { Log.info("captureStyle: not implemented yet") }
+    func lookupWord() {
+        let cmd = DictionaryCommand(ollama: fixer.ollama, config: fixer.config, accessibility: accessibility)
+        Task { @MainActor in await cmd.execute() }
+    }
+    func captureStyleExample() {
+        let store = StyleExamplesStore()
+        let cmd = CaptureStyleCommand(store: store, accessibility: accessibility)
+        Task { @MainActor in await cmd.execute() }
+    }
 }
