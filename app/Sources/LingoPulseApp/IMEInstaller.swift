@@ -73,7 +73,7 @@ class IMEInstaller {
     ///            Both are noErr on full success.  Errors are non-fatal: the IME
     ///            is still installed on disk; the user can add it manually.
     @discardableResult
-    func enableViaTIS() -> (register: OSStatus, enable: OSStatus) {
+    func enableViaTIS() async -> (register: OSStatus, enable: OSStatus) {
         let paramErrStatus = OSStatus(paramErr)
         let dest = installDestination
         guard fileManager.fileExists(atPath: dest.path),
@@ -85,21 +85,39 @@ class IMEInstaller {
 
         let registerStatus = TISRegisterInputSource(destCFURL)
 
-        // Look up the IME by its bundle-id (registered in its Info.plist as
-        // CFBundleIdentifier = "com.lingopulse.ime").  We pass
-        // includeAllInstalled: true so newly-registered (but not yet enabled)
-        // sources are included in the snapshot.
-        let filter: [String: Any] = [
-            kTISPropertyBundleID as String: "com.lingopulse.ime"
-        ]
-        guard let cfList = TISCreateInputSourceList(filter as CFDictionary, true),
-              let sources = cfList.takeRetainedValue() as? [TISInputSource],
-              let source = sources.first
-        else {
-            return (registerStatus, paramErrStatus)
+        // Retry up to 3 times with 1s spacing — macOS needs to re-scan
+        // ~/Library/Input Methods/ after a fresh register before TIS can find
+        // and enable the source. Single-shot enable usually fails with paramErr (-50).
+        var enableStatus: OSStatus = paramErrStatus
+        for attempt in 0..<3 {
+            if attempt > 0 {
+                try? await Task.sleep(for: .seconds(1))
+            }
+            let filter: [String: Any] = [
+                kTISPropertyBundleID as String: "com.lingopulse.ime"
+            ]
+            guard let cfList = TISCreateInputSourceList(filter as CFDictionary, true),
+                  let sources = cfList.takeRetainedValue() as? [TISInputSource],
+                  let source = sources.first
+            else {
+                continue
+            }
+            enableStatus = TISEnableInputSource(source)
+            if enableStatus == noErr {
+                // Also explicitly enable each input mode declared by the bundle so
+                // the mode shows in the input picker (not just the parent IME).
+                let modeFilter: [String: Any] = [
+                    kTISPropertyInputSourceID as String: "com.lingopulse.inputmode.english"
+                ]
+                if let modeList = TISCreateInputSourceList(modeFilter as CFDictionary, true),
+                   let modes = modeList.takeRetainedValue() as? [TISInputSource],
+                   let mode = modes.first {
+                    _ = TISEnableInputSource(mode)
+                    _ = TISSelectInputSource(mode)
+                }
+                return (registerStatus, enableStatus)
+            }
         }
-
-        let enableStatus = TISEnableInputSource(source)
         return (registerStatus, enableStatus)
     }
 

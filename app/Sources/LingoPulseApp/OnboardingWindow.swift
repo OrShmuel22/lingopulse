@@ -250,7 +250,7 @@ private struct OnboardingView: View {
             do {
                 let installer = IMEInstaller()
                 try installer.install()
-                let (regStatus, enableStatus) = installer.enableViaTIS()
+                let (regStatus, enableStatus) = await installer.enableViaTIS()
                 Log.info("TIS register=\(regStatus) enable=\(enableStatus)")
                 step += 1
             } catch {

@@ -36,8 +36,28 @@
                 <string>com.lingopulse.inputmode.english</string>
                 <key>TISIntendedLanguage</key>
                 <string>en</string>
+                <key>TISInputSourceLanguages</key>
+                <array>
+                    <string>en</string>
+                </array>
+                <key>tsInputModeIsVisibleKey</key>
+                <true/>
+                <key>tsInputModeDefaultStateKey</key>
+                <true/>
+                <key>tsInputModeAlternateMenuIconFileKey</key>
+                <string>menu-icon.png</string>
+                <key>tsInputModeMenuIconFileKey</key>
+                <string>menu-icon.png</string>
+                <key>tsInputModePaletteIconFileKey</key>
+                <string>menu-icon.png</string>
+                <key>TISIconIsTemplate</key>
+                <false/>
             </dict>
         </dict>
+        <key>tsVisibleInputModeOrderedArrayKey</key>
+        <array>
+            <string>com.lingopulse.inputmode.english</string>
+        </array>
     </dict>
     <key>NSHumanReadableCopyright</key>
     <string>LingoPulse</string>
