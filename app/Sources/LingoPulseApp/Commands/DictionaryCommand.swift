@@ -28,7 +28,7 @@ final class DictionaryCommand {
                 model: model,
                 prompt: prompt,
                 keepAlive: "30m",
-                format: "json",
+                format: Dictionary.jsonSchema,
                 timeout: timeout
             )
             let candidates = Dictionary.parseResponse(raw)
