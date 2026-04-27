@@ -23,24 +23,47 @@ enum Dictionary {
         return hebrewRegex.firstMatch(in: text, range: range) != nil
     }
 
+    static let jsonSchema: [String: Any] = [
+        "type": "object",
+        "properties": [
+            "candidates": [
+                "type": "array",
+                "items": [
+                    "type": "object",
+                    "properties": [
+                        "word": ["type": "string"],
+                        "example": ["type": "string"],
+                        "register": ["type": "string", "enum": ["casual", "neutral", "formal", "technical"]],
+                        "confidence": ["type": "string", "enum": ["high", "low"]]
+                    ],
+                    "required": ["word"]
+                ]
+            ]
+        ],
+        "required": ["candidates"]
+    ]
+
     static let enPrompt = """
     You help a user find precise English words from a description.
-    Return exactly 3 word candidates as a JSON array. For each candidate:
+    Return a JSON object with a "candidates" array containing up to 3 word candidates.
+    For each candidate:
       "word": the English word or short phrase
       "example": one brief sentence showing the word in use
       "register": one of "casual", "neutral", "formal", "technical"
+      "confidence": one of "high", "low"
     Prefer words the user is likely looking for over archaic or obscure options.
     Preserve existing English words from the query if they're already correct.
 
     Query: {query}
 
-    Return only the JSON array. No preamble.
+    Return only the JSON object. No preamble. No markdown fences.
     """
 
     static let hePrompt = """
     You help a native Hebrew speaker find precise English words.
     The user has typed a description that may include Hebrew, English, or both.
-    Return up to 3 word candidates as a JSON array. For each:
+    Return a JSON object with a "candidates" array containing up to 3 word candidates.
+    For each:
       "word": the English word or short phrase
       "example": one brief sentence showing the word in use
       "register": one of "casual", "neutral", "formal", "technical"
@@ -53,7 +76,7 @@ enum Dictionary {
 
     Query: {query}
 
-    Return only the JSON array. No preamble.
+    Return only the JSON object. No preamble. No markdown fences.
     """
 
     static func buildPrompt(query: String) -> String {
@@ -64,42 +87,21 @@ enum Dictionary {
     static func parseResponse(_ raw: String) -> [DictionaryCandidate] {
         var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Strip leading markdown fence
-        if let range = text.range(of: "^```[a-zA-Z]*\n?", options: .regularExpression) {
+        if let range = text.range(of: "^```[a-zA-Z]*\\n?", options: .regularExpression) {
             text.removeSubrange(range)
         }
-        // Strip trailing markdown fence
-        if let range = text.range(of: "\n?```$", options: .regularExpression) {
+        if let range = text.range(of: "\\n?```$", options: .regularExpression) {
             text.removeSubrange(range)
         }
         text = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Try to extract JSON array via first [ and last ]
-        if let startIdx = text.firstIndex(of: "["),
-           let lastBracket = text.lastIndex(of: "]"),
-           lastBracket > startIdx {
-            let arrayStr = String(text[startIdx...lastBracket])
-            if let data = arrayStr.data(using: .utf8),
-               let parsed = try? JSONSerialization.jsonObject(with: data),
-               let arr = parsed as? [[String: Any]] {
-                return arr.compactMap(candidateFromDict)
-            }
-        }
-
-        // Regex fallback: extract individual JSON objects
-        guard let objRegex = try? NSRegularExpression(pattern: "\\{[^{}]+\\}", options: .dotMatchesLineSeparators) else {
+        guard let data = text.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let candidates = json["candidates"] as? [[String: Any]] else {
             return []
         }
-        let nsText = text as NSString
-        let matches = objRegex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
-        return matches.compactMap { match in
-            let objStr = nsText.substring(with: match.range)
-            guard let data = objStr.data(using: .utf8),
-                  let parsed = try? JSONSerialization.jsonObject(with: data),
-                  let dict = parsed as? [String: Any],
-                  dict["word"] != nil else { return nil }
-            return candidateFromDict(dict)
-        }
+
+        return candidates.compactMap(candidateFromDict)
     }
 
     private static func candidateFromDict(_ dict: [String: Any]) -> DictionaryCandidate? {
