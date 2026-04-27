@@ -48,7 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .appendingPathComponent(".cache/lingopulse/ring.json")
         let ringSize: Int = config.value(at: "ring_buffer.size") ?? 5
         let ring = RingBuffer(fileURL: ringPath, size: ringSize)
-        let fixer = Fixer(ollama: ollama, config: config, history: history, ring: ring)
+        let spell: SpellChecking = SpellCheck()
+        let fixer = Fixer(ollama: ollama, config: config, history: history, ring: ring, spellCheck: spell)
         self.fixer = fixer
 
         let coordinator = AppCoordinator(fixer: fixer, accessibility: accessibility)

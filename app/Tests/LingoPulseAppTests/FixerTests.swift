@@ -54,6 +54,28 @@ private func makeMockSessionForFixer(response: String) -> URLSession {
     return URLSession(configuration: config)
 }
 
+// MARK: - SpellCheck stub for Fixer integration test
+
+private final class StubSpellCheck: SpellChecking {
+    var capturedText: String = ""
+    let edit: SpellCorrection
+
+    init(original: String, corrected: String) {
+        self.edit = SpellCorrection(
+            original: original,
+            corrected: corrected,
+            nsRange: NSRange(location: 0, length: (original as NSString).length)
+        )
+    }
+
+    func correct(_ text: String) -> (corrected: String, edits: [SpellCorrection]) {
+        capturedText = text
+        let result = text.replacingOccurrences(of: edit.original, with: edit.corrected)
+        let changed = result != text
+        return (result, changed ? [edit] : [])
+    }
+}
+
 // MARK: - Tests
 
 @Suite(.serialized) struct FixerTests {
@@ -119,6 +141,52 @@ private func makeMockSessionForFixer(response: String) -> URLSession {
 
         let result = await fixer.alreadyRefined("Hello, world.")
         #expect(result == false)
+    }
+
+    @Test @MainActor func spellCheckPrePassSendsCorrectWordToOllama() async throws {
+        // Verify that when a SpellChecking instance corrects a word, the prompt
+        // sent to Ollama contains the corrected word, not the original typo.
+        var capturedPrompt: String = ""
+        let sessionConfig = URLSessionConfiguration.ephemeral
+        sessionConfig.protocolClasses = [FixerMockURLProtocol.self]
+        FixerMockURLProtocol.handler = { req in
+            let httpResp = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            var body = req.httpBody ?? Data()
+            if body.isEmpty, let stream = req.httpBodyStream {
+                stream.open()
+                let buf = UnsafeMutablePointer<UInt8>.allocate(capacity: 65536)
+                defer { buf.deallocate(); stream.close() }
+                while stream.hasBytesAvailable {
+                    let n = stream.read(buf, maxLength: 65536)
+                    if n <= 0 { break }
+                    body.append(buf, count: n)
+                }
+            }
+            if let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+               let prompt = json["prompt"] as? String {
+                capturedPrompt = prompt
+            }
+            return (httpResp, try! JSONSerialization.data(withJSONObject: ["response": "fixed text"]))
+        }
+
+        let stub = StubSpellCheck(original: "beacuse", corrected: "because")
+        let ollama = OllamaService(session: URLSession(configuration: sessionConfig))
+        let config = AppConfig(configURL: URL(fileURLWithPath: "/dev/null/nonexistent"))
+        let ring = RingBuffer(
+            fileURL: URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("fixer-ring-\(UUID().uuidString).json"),
+            size: 5
+        )
+        let history = HistoryStore(
+            fileURL: URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("fixer-hist-\(UUID().uuidString).jsonl")
+        )
+        let fixer = Fixer(ollama: ollama, config: config, history: history, ring: ring, spellCheck: stub)
+
+        _ = try await fixer.refine(selection: "beacuse", app: "Slack")
+
+        #expect(capturedPrompt.contains("because"))
+        #expect(!capturedPrompt.contains("beacuse"))
     }
 
     @Test @MainActor func protectionRoundTripRestoresURL() async throws {

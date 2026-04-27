@@ -55,6 +55,9 @@ final class AppConfig {
         ],
         "personal_dict": [
             "path": "~/.config/lingopulse/personal_dict.json"
+        ],
+        "spell_check": [
+            "enabled": true
         ]
     ]
 

@@ -18,12 +18,18 @@ final class Fixer {
     let config: AppConfig
     let history: HistoryStore
     let ring: RingBuffer
+    let spellCheck: SpellChecking?
 
-    init(ollama: OllamaService, config: AppConfig, history: HistoryStore, ring: RingBuffer) {
+    init(ollama: OllamaService,
+         config: AppConfig,
+         history: HistoryStore,
+         ring: RingBuffer,
+         spellCheck: SpellChecking? = nil) {
         self.ollama = ollama
         self.config = config
         self.history = history
         self.ring = ring
+        self.spellCheck = spellCheck
     }
 
     func refine(selection: String, app: String, toneOverride: String? = nil) async throws -> FixerResult {
@@ -32,7 +38,19 @@ final class Fixer {
 
         let tone = toneOverride ?? Prompts.tone(forApp: app, selection: trimmed, config: config)
         let protected = Protection.protect(trimmed)
-        let prompt = Prompts.buildFixerPrompt(app: app, tone: tone, message: protected.redacted)
+        var preCorrected = protected.redacted
+        var spellEdits: [SpellCorrection] = []
+        let spellEnabled: Bool = config.value(at: "spell_check.enabled") ?? true
+        if spellEnabled, let spell = spellCheck {
+            let result = spell.correct(protected.redacted)
+            preCorrected = result.corrected
+            spellEdits = result.edits
+            if !spellEdits.isEmpty {
+                let summary = spellEdits.map { "\($0.original)→\($0.corrected)" }.joined(separator: ", ")
+                Log.info("SpellCheck pre-pass corrected \(spellEdits.count) word(s): \(summary)")
+            }
+        }
+        let prompt = Prompts.buildFixerPrompt(app: app, tone: tone, message: preCorrected)
 
         let model: String = config.value(at: "fixer.model") ?? "gemma3:1b-it-qat"
         let keepAlive: String = config.value(at: "keepalive.ollama_keep_alive") ?? "30m"
@@ -89,6 +107,7 @@ final class Fixer {
                 "app": app,
                 "original": trimmed,
                 "refined": refined,
+                "spell_edits": spellEdits.count,
             ])
         } catch {
             Log.error("Fixer: failed to append to history: \(error)")
