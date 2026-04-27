@@ -1,6 +1,6 @@
 # LingoPulse
 
-Local, private English refinement for macOS. One menu-bar app. Six global hotkeys. Optional live-typing mode. Runs entirely offline on Apple Silicon via Ollama + Gemma 3 1B (QAT).
+Local, private English refinement for macOS. One menu-bar app. Two triggers. Optional live-typing mode. Runs entirely offline on Apple Silicon via Ollama + Gemma 3 1B (QAT).
 
 ---
 
@@ -34,18 +34,32 @@ That's it. No terminal, no Python, no LaunchAgents.
 
 ---
 
-## Hotkeys (default)
+## Triggers
 
-| Hotkey  | Command                |
-|---------|------------------------|
-| ⌘⌥E    | Refine selection       |
-| ⌘⌥⇧E   | Refine — Preview first |
-| ⌘⌥Z    | Undo last refinement   |
-| ⌘⌥T    | Refine with chosen tone |
-| ⌘⌥S    | Find a word (dictionary) |
-| ⌘⌥M    | Save selection as style example |
+| Trigger | Action |
+|---------|--------|
+| **Right ⌘** (single tap) | Refine. Uses your selection if any; otherwise refines the whole focused field. |
+| **Double-tap ⇧** | Open the quick-action menu (Refine · Preview · Tone · Undo · Find a Word · Capture Style). |
+| **`lp-refine`** (shell widget) | Refine the current zsh/bash command line in place. |
 
-Rebind any of these via Settings → Hotkeys.
+Pick a different single key (Right ⌥, Fn) or different double-tap modifier (⌘, ⌥) in Settings → Triggers.
+
+---
+
+## Terminal (zsh / bash)
+
+Live Mode and Right ⌘ don't work in iTerm/Terminal/Cursor's terminal pane — these apps don't expose AX text. Instead, install the shell widget:
+
+1. Settings → Triggers → enable **Shell integration**.
+2. Click **Install for zsh** (or bash). LingoPulse appends two lines to your `~/.zshrc`:
+   ```
+   source "${HOME}/.config/lingopulse/lp-refine.zsh"
+   bindkey '^G' lp-refine
+   ```
+3. Open a new terminal (or `source ~/.zshrc`).
+4. Type a sentence at the prompt and press **Ctrl+G** — the line is replaced with the refined version in place.
+
+Bound to Ctrl+G by default. Re-bind by editing the `bindkey` line.
 
 ---
 
@@ -57,7 +71,7 @@ Settings → Live Mode → Enable. While typing in any AX-aware text field, Ling
 
 ## Daily flow
 
-Select text, press ⌘⌥E. Bad rewrite? ⌘⌥Z. Want a specific tone? ⌘⌥T. Don't know the English word? Type a description in any language, ⌘⌥S.
+Press Right ⌘ to refine what you're writing — selection or whole field. Hit Esc to undo from the menu (double-tap ⇧). Want a specific tone? Double-tap ⇧ → Tone. In a terminal? Press Ctrl+G after installing the shell widget.
 
 ---
 
@@ -85,7 +99,7 @@ app/Sources/LingoPulseApp/
   Commands/        # Refine, Undo, Preview, Tone, Dictionary, CaptureStyle
   Views/           # PreviewPanel, TonePickerPanel, DictionaryPanel,
                    # UndoFallbackPanel, GhostOverlayWindow
-  AppDelegate, AppCoordinator, HotkeyManager, MenuBarController,
+  AppDelegate, AppCoordinator, TriggerMonitor, MenuBarController,
   SettingsWindow, OnboardingWindow, Preferences, ...
 docs/product/      # decision records
 ```
@@ -122,7 +136,7 @@ Your `~/.config/lingopulse/` data carries over verbatim.
 ## Honest limits
 
 - Hebrew dictionary uses Gemma 3 1B (QAT) — strong but not perfect on rare words
-- Live Mode does not fire in iTerm/Terminal/etc. — they don't expose AX text
+- Live Mode and Right ⌘ don't fire in iTerm/Terminal/Cursor's terminal pane (no AX text). Use the `lp-refine` shell widget instead — see Terminal section.
 - Apple Intelligence Writing Tools is NOT used (no Hebrew support as of macOS 26.1)
 
 ---
@@ -133,6 +147,12 @@ Your `~/.config/lingopulse/` data carries over verbatim.
 cd app
 swift test     # 96 unit tests
 ```
+
+---
+
+## Migration from v1.x (chord hotkeys)
+
+v2 replaces the six chord hotkeys (⌘⌥E and friends) with Right ⌘ + double-tap ⇧. Saved chord bindings are cleared automatically on first launch — no action needed.
 
 ---
 

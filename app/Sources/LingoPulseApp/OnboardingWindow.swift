@@ -71,6 +71,7 @@ private struct OnboardingView: View {
         switch step {
         case 0:  welcomeStep
         case 1:  accessibilityStep
+        case 2:  howToUseStep
         default: welcomeStep
         }
     }
@@ -133,10 +134,63 @@ private struct OnboardingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var howToUseStep: some View {
+        VStack(spacing: 24) {
+            Text("Two triggers, anywhere.")
+                .font(.title.bold())
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: "command")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                        .foregroundStyle(Color.accentColor)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Right ⌘").bold()
+                        Text("Press Right ⌘ → refine selection (or whole field).")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: "square.and.arrow.up.on.square")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                        .foregroundStyle(Color.accentColor)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Double-tap ⇧").bold()
+                        Text("Double-tap ⇧ → quick action menu.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: "terminal")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                        .foregroundStyle(Color.accentColor)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Shell widget").bold()
+                        Text("Terminal: enable Shell integration in Settings → Triggers.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 60)
+
+            Text("All triggers are configurable in Settings → Triggers.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     private var navigationBar: some View {
         HStack {
             HStack(spacing: 6) {
-                ForEach(0..<2, id: \.self) { i in
+                ForEach(0..<3, id: \.self) { i in
                     Circle()
                         .fill(i == step ? Color.accentColor : Color.secondary.opacity(0.3))
                         .frame(width: 8, height: 8)
@@ -150,13 +204,13 @@ private struct OnboardingView: View {
                     .buttonStyle(.bordered)
             }
 
-            if step < 1 {
+            if step < 2 {
                 Button("Next") { step += 1 }
                     .buttonStyle(.borderedProminent)
+                    .disabled(step == 1 && !axGranted)
             } else {
                 Button("Finish") { onComplete() }
                     .buttonStyle(.borderedProminent)
-                    .disabled(!axGranted)
             }
         }
         .padding(.horizontal, 20)
