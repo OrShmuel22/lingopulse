@@ -1,5 +1,11 @@
 import Foundation
 
+struct OllamaModelInfo: Codable, Equatable {
+    let name: String
+    let size: Int64
+    let parameterSize: String?
+}
+
 enum OllamaError: Error, Equatable {
     case busy
     case timeout
@@ -102,6 +108,45 @@ final class OllamaService {
             }
         }
         throw lastError!
+    }
+
+    /// GET <host>/api/tags. Throws OllamaError on transport or decoding failure.
+    func listModels(timeout: Double = 5.0) async throws -> [OllamaModelInfo] {
+        guard let url = URL(string: "\(host)/api/tags") else {
+            throw OllamaError.underlying("invalid host URL")
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = timeout
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch let urlError as URLError where urlError.code == .timedOut {
+            throw OllamaError.timeout
+        } catch {
+            throw OllamaError.underlying(error.localizedDescription)
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw OllamaError.invalidResponse
+        }
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            throw OllamaError.http(httpResponse.statusCode)
+        }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = json["models"] as? [[String: Any]] else {
+            throw OllamaError.decode("missing models field")
+        }
+
+        return models.compactMap { dict -> OllamaModelInfo? in
+            guard let name = dict["name"] as? String else { return nil }
+            let size = (dict["size"] as? Int64) ?? Int64(dict["size"] as? Int ?? 0)
+            let details = dict["details"] as? [String: Any]
+            let paramSize = details?["parameter_size"] as? String
+            return OllamaModelInfo(name: name, size: size, parameterSize: paramSize)
+        }
     }
 
     private func buildRequest(

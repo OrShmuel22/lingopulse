@@ -50,9 +50,17 @@ final class Fixer {
                 Log.info("SpellCheck pre-pass corrected \(spellEdits.count) word(s): \(summary)")
             }
         }
-        let prompt = Prompts.buildFixerPrompt(app: app, tone: tone, message: preCorrected)
+        let prefs = Preferences.shared
+        let prompt = Prompts.buildFixerPrompt(
+            app: app,
+            tone: tone,
+            message: preCorrected,
+            promptOverride: prefs.fixerPromptOverride,
+            toneOverrides: prefs.toneOverrides
+        )
 
-        let model: String = config.value(at: "fixer.model") ?? "gemma3:1b-it-qat"
+        let modelFromConfig: String = config.value(at: "fixer.model") ?? "gemma3:1b-it-qat"
+        let model: String = prefs.fixerModel ?? modelFromConfig
         let keepAlive: String = config.value(at: "keepalive.ollama_keep_alive") ?? "30m"
         let timeout: Double = {
             if let t: Int = config.value(at: "fixer.timeout_seconds") { return Double(t) }

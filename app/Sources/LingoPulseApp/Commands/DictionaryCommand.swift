@@ -20,7 +20,8 @@ final class DictionaryCommand {
         }
 
         let prompt = Dictionary.buildPrompt(query: q)
-        let model = config.value(at: "dictionary.model", as: String.self) ?? "gemma3:1b-it-qat"
+        let modelFromConfig = config.value(at: "dictionary.model", as: String.self) ?? "gemma3:1b-it-qat"
+        let model = Preferences.shared.dictionaryModel ?? modelFromConfig
         let timeout = config.value(at: "dictionary.timeout_seconds", as: Double.self) ?? 15.0
 
         do {

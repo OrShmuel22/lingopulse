@@ -26,6 +26,8 @@ struct SettingsView: View {
                 .tabItem { Label("Apps", systemImage: "app.badge") }
             AdvancedTab(prefs: prefs)
                 .tabItem { Label("Advanced", systemImage: "slider.horizontal.3") }
+            ModelsPromptsTab(prefs: prefs)
+                .tabItem { Label("Models & Prompts", systemImage: "brain") }
             LiveModeTab(prefs: prefs)
                 .tabItem { Label("Live Mode", systemImage: "wand.and.stars") }
         }

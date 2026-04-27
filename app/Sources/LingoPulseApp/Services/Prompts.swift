@@ -103,12 +103,24 @@ enum Prompts {
         return tone
     }
 
-    static func buildFixerPrompt(app: String, tone: String, message: String) -> String {
-        let description = toneDescriptions[tone] ?? "balanced clarity and grammar"
-        return fixerTemplate
+    /// Use promptOverride as the template when non-nil; prefer toneOverrides[tone] over built-in descriptions.
+    static func buildFixerPrompt(
+        app: String,
+        tone: String,
+        message: String,
+        promptOverride: String? = nil,
+        toneOverrides: [String: String] = [:]
+    ) -> String {
+        let template = promptOverride ?? fixerTemplate
+        let description = resolveToneDescription(for: tone, overrides: toneOverrides)
+        return template
             .replacingOccurrences(of: "{app}", with: app)
             .replacingOccurrences(of: "{tone_name}", with: tone)
             .replacingOccurrences(of: "{tone_description}", with: description)
             .replacingOccurrences(of: "{message}", with: message)
+    }
+
+    static func resolveToneDescription(for toneName: String, overrides: [String: String]) -> String {
+        overrides[toneName] ?? toneDescriptions[toneName] ?? toneDescriptions["Neutral"] ?? ""
     }
 }

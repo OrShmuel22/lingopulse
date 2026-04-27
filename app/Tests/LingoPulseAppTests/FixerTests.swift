@@ -189,6 +189,51 @@ private final class StubSpellCheck: SpellChecking {
         #expect(!capturedPrompt.contains("beacuse"))
     }
 
+    @Test @MainActor func fixerModelPrefOverridesConfig() async throws {
+        // Prefs.fixerModel should be sent to Ollama instead of the config default.
+        var capturedModel: String = ""
+        let sessionConfig = URLSessionConfiguration.ephemeral
+        sessionConfig.protocolClasses = [FixerMockURLProtocol.self]
+        FixerMockURLProtocol.handler = { req in
+            let httpResp = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            var body = req.httpBody ?? Data()
+            if body.isEmpty, let stream = req.httpBodyStream {
+                stream.open()
+                let buf = UnsafeMutablePointer<UInt8>.allocate(capacity: 65536)
+                defer { buf.deallocate(); stream.close() }
+                while stream.hasBytesAvailable {
+                    let n = stream.read(buf, maxLength: 65536)
+                    if n <= 0 { break }
+                    body.append(buf, count: n)
+                }
+            }
+            if let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+               let model = json["model"] as? String {
+                capturedModel = model
+            }
+            return (httpResp, try! JSONSerialization.data(withJSONObject: ["response": "fixed text"]))
+        }
+
+        Preferences.shared.fixerModel = "custom:tag"
+        defer { Preferences.shared.fixerModel = nil }
+
+        let ollama = OllamaService(session: URLSession(configuration: sessionConfig))
+        let config = AppConfig(configURL: URL(fileURLWithPath: "/dev/null/nonexistent"))
+        let ring = RingBuffer(
+            fileURL: URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("fixer-ring-\(UUID().uuidString).json"),
+            size: 5
+        )
+        let history = HistoryStore(
+            fileURL: URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("fixer-hist-\(UUID().uuidString).jsonl")
+        )
+        let fixer = Fixer(ollama: ollama, config: config, history: history, ring: ring)
+        _ = try await fixer.refine(selection: "hello world", app: "Slack")
+
+        #expect(capturedModel == "custom:tag")
+    }
+
     @Test @MainActor func protectionRoundTripRestoresURL() async throws {
         let url = "https://example.com/x"
         // Input without URLs so Protection produces no tokens — mock returns a corrected version

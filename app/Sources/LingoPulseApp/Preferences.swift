@@ -28,6 +28,10 @@ final class Preferences: ObservableObject {
         static let triggerSingleKey = "lp.triggerSingleKey"
         static let triggerDoubleTapMod = "lp.triggerDoubleTapMod"
         static let shellBridgeEnabled = "lp.shellBridgeEnabled"
+        static let fixerModel = "lp.fixerModel"
+        static let dictionaryModel = "lp.dictionaryModel"
+        static let fixerPromptOverride = "lp.fixerPromptOverride"
+        static let toneOverridesJSON = "lp.toneOverridesJSON"
     }
 
     static let defaultExcludedApps: Set<String> = [
@@ -74,6 +78,36 @@ final class Preferences: ObservableObject {
     @Published var shellBridgeEnabled: Bool {
         didSet { defaults.set(shellBridgeEnabled, forKey: Key.shellBridgeEnabled) }
     }
+    // nil means "use AppConfig default"
+    @Published var fixerModel: String? {
+        didSet {
+            if let v = fixerModel { defaults.set(v, forKey: Key.fixerModel) }
+            else { defaults.removeObject(forKey: Key.fixerModel) }
+        }
+    }
+    @Published var dictionaryModel: String? {
+        didSet {
+            if let v = dictionaryModel { defaults.set(v, forKey: Key.dictionaryModel) }
+            else { defaults.removeObject(forKey: Key.dictionaryModel) }
+        }
+    }
+    // nil means "use built-in fixerTemplate"
+    @Published var fixerPromptOverride: String? {
+        didSet {
+            if let v = fixerPromptOverride { defaults.set(v, forKey: Key.fixerPromptOverride) }
+            else { defaults.removeObject(forKey: Key.fixerPromptOverride) }
+        }
+    }
+    // empty dict means "use built-in toneDescriptions"
+    @Published var toneOverrides: [String: String] {
+        didSet {
+            if toneOverrides.isEmpty {
+                defaults.removeObject(forKey: Key.toneOverridesJSON)
+            } else if let data = try? JSONSerialization.data(withJSONObject: toneOverrides) {
+                defaults.set(data, forKey: Key.toneOverridesJSON)
+            }
+        }
+    }
 
     private init() {
         self.enabled = defaults.object(forKey: Key.enabled) as? Bool ?? true
@@ -90,5 +124,14 @@ final class Preferences: ObservableObject {
         self.triggerSingleKey = defaults.string(forKey: Key.triggerSingleKey) ?? "rightCommand"
         self.triggerDoubleTapMod = defaults.string(forKey: Key.triggerDoubleTapMod) ?? "shift"
         self.shellBridgeEnabled = defaults.object(forKey: Key.shellBridgeEnabled) as? Bool ?? false
+        self.fixerModel = defaults.string(forKey: Key.fixerModel)
+        self.dictionaryModel = defaults.string(forKey: Key.dictionaryModel)
+        self.fixerPromptOverride = defaults.string(forKey: Key.fixerPromptOverride)
+        if let data = defaults.data(forKey: Key.toneOverridesJSON),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+            self.toneOverrides = dict
+        } else {
+            self.toneOverrides = [:]
+        }
     }
 }

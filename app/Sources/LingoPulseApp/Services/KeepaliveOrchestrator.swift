@@ -84,7 +84,8 @@ final class KeepaliveOrchestrator {
     }
 
     private func resolveModel() -> String {
-        return config.value(at: "fixer.model") ?? "gemma3:1b-it-qat"
+        let configDefault: String = config.value(at: "fixer.model") ?? "gemma3:1b-it-qat"
+        return Preferences.shared.fixerModel ?? configDefault
     }
 
     private func isInActiveHours() -> Bool {
