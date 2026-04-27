@@ -7,15 +7,11 @@ let package = Package(
     products: [
         .executable(name: "LingoPulseApp", targets: ["LingoPulseApp"]),
     ],
-    dependencies: [
-        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", exact: "1.10.0"),
-    ],
+    dependencies: [],
     targets: [
         .executableTarget(
             name: "LingoPulseApp",
-            dependencies: [
-                .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
-            ],
+            dependencies: [],
             path: "Sources/LingoPulseApp"
         ),
         .testTarget(

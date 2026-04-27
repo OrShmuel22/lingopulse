@@ -23,6 +23,8 @@ mkdir -p "$BUNDLE/Contents/Resources"
 
 cp "$BIN_PATH" "$BUNDLE/Contents/MacOS/LingoPulseApp"
 cp Resources/Info.plist "$BUNDLE/Contents/Info.plist"
+cp scripts/lp-refine.zsh  "$BUNDLE/Contents/Resources/lp-refine.zsh"
+cp scripts/lp-refine.bash "$BUNDLE/Contents/Resources/lp-refine.bash"
 
 codesign --force --deep --sign - \
     --entitlements "$APP_DIR/Resources/LingoPulseApp.entitlements" \

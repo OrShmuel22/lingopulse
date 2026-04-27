@@ -25,6 +25,9 @@ final class Preferences: ObservableObject {
         static let launchAtLogin = "lp.launchAtLogin"
         static let liveModeEnabled = "lp.liveModeEnabled"
         static let liveModeExcludedApps = "lp.liveModeExcludedApps"
+        static let triggerSingleKey = "lp.triggerSingleKey"
+        static let triggerDoubleTapMod = "lp.triggerDoubleTapMod"
+        static let shellBridgeEnabled = "lp.shellBridgeEnabled"
     }
 
     static let defaultExcludedApps: Set<String> = [
@@ -62,6 +65,15 @@ final class Preferences: ObservableObject {
     @Published var liveModeExcludedApps: Set<String> {
         didSet { defaults.set(Array(liveModeExcludedApps), forKey: Key.liveModeExcludedApps) }
     }
+    @Published var triggerSingleKey: String {
+        didSet { defaults.set(triggerSingleKey, forKey: Key.triggerSingleKey) }
+    }
+    @Published var triggerDoubleTapMod: String {
+        didSet { defaults.set(triggerDoubleTapMod, forKey: Key.triggerDoubleTapMod) }
+    }
+    @Published var shellBridgeEnabled: Bool {
+        didSet { defaults.set(shellBridgeEnabled, forKey: Key.shellBridgeEnabled) }
+    }
 
     private init() {
         self.enabled = defaults.object(forKey: Key.enabled) as? Bool ?? true
@@ -75,5 +87,8 @@ final class Preferences: ObservableObject {
         self.liveModeEnabled = defaults.object(forKey: Key.liveModeEnabled) as? Bool ?? false
         let savedExcl = defaults.array(forKey: Key.liveModeExcludedApps) as? [String]
         self.liveModeExcludedApps = Set(savedExcl ?? Self.defaultLiveModeExcludedApps)
+        self.triggerSingleKey = defaults.string(forKey: Key.triggerSingleKey) ?? "rightCommand"
+        self.triggerDoubleTapMod = defaults.string(forKey: Key.triggerDoubleTapMod) ?? "shift"
+        self.shellBridgeEnabled = defaults.object(forKey: Key.shellBridgeEnabled) as? Bool ?? false
     }
 }
