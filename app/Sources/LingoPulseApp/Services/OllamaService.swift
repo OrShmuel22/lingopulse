@@ -16,7 +16,7 @@ final class OllamaService {
     private let backend: OllamaBackend
     private let host: String
     private let session: URLSession
-    private var inFlight: Bool = false
+    private var inFlightModels: Set<String> = []
 
     init(backend: OllamaBackend = .ollama, host: String = "http://127.0.0.1:11434", session: URLSession = .shared) {
         self.backend = backend
@@ -28,14 +28,15 @@ final class OllamaService {
         model: String,
         prompt: String,
         keepAlive: String = "30m",
-        format: String? = nil,
+        format: Any? = nil,
         timeout: TimeInterval = 15.0,
         think: Bool = false,
-        options: [String: Any]? = nil
+        options: [String: Any]? = nil,
+        maxRetries: Int = 2
     ) async throws -> String {
-        guard !inFlight else { throw OllamaError.busy }
-        inFlight = true
-        defer { inFlight = false }
+        guard !inFlightModels.contains(model) else { throw OllamaError.busy }
+        inFlightModels.insert(model)
+        defer { inFlightModels.remove(model) }
 
         let (url, payload) = buildRequest(model: model, prompt: prompt, keepAlive: keepAlive, format: format, think: think, options: options)
 
@@ -52,60 +53,62 @@ final class OllamaService {
         request.httpBody = body
         request.timeoutInterval = timeout
 
-        let data: Data
-        let response: HTTPURLResponse
-        do {
-            (data, response) = try await withCheckedThrowingContinuation { continuation in
-                session.dataTask(with: request) { d, r, e in
-                    if let e {
-                        continuation.resume(throwing: e)
-                        return
-                    }
-                    guard let http = r as? HTTPURLResponse else {
-                        continuation.resume(throwing: OllamaError.invalidResponse)
-                        return
-                    }
-                    continuation.resume(returning: (d ?? Data(), http))
-                }.resume()
+        var lastError: Error?
+        for attempt in 0...maxRetries {
+            do {
+                let (data, response) = try await session.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw OllamaError.invalidResponse
+                }
+                guard (200..<300).contains(httpResponse.statusCode) else {
+                    throw OllamaError.http(httpResponse.statusCode)
+                }
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                let text: String?
+                if backend == .openai {
+                    let choices = json?["choices"] as? [[String: Any]]
+                    let message = choices?.first?["message"] as? [String: Any]
+                    text = message?["content"] as? String
+                } else {
+                    text = json?["response"] as? String
+                }
+                guard let result = text else {
+                    throw OllamaError.decode("missing response field")
+                }
+                return result
+            } catch let urlError as URLError where urlError.code == .timedOut {
+                lastError = OllamaError.timeout
+            } catch let ollamaError as OllamaError {
+                lastError = ollamaError
+            } catch {
+                lastError = OllamaError.underlying(error.localizedDescription)
             }
-        } catch let urlError as URLError where urlError.code == .timedOut {
-            throw OllamaError.timeout
-        } catch let ollamaErr as OllamaError {
-            throw ollamaErr
-        } catch {
-            throw OllamaError.underlying(error.localizedDescription)
-        }
 
-        if !(200..<300).contains(response.statusCode) {
-            throw OllamaError.http(response.statusCode)
-        }
+            let shouldRetry: Bool = {
+                guard attempt < maxRetries else { return false }
+                if let oe = lastError as? OllamaError {
+                    switch oe {
+                    case .timeout, .http(503), .http(429): return true
+                    default: return false
+                    }
+                }
+                return false
+            }()
 
-        do {
-            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-            let text: String?
-            if backend == .openai {
-                let choices = json?["choices"] as? [[String: Any]]
-                let message = choices?.first?["message"] as? [String: Any]
-                text = message?["content"] as? String
-            } else {
-                text = json?["response"] as? String
+            if shouldRetry {
+                let delayMs = 300 * (1 << attempt)
+                Log.debug("OllamaService: retry \(attempt + 1)/\(maxRetries) after \(delayMs)ms — \(lastError!)")
+                try await Task.sleep(nanoseconds: UInt64(delayMs) * 1_000_000)
             }
-            guard let result = text else {
-                throw OllamaError.decode("missing response field")
-            }
-            return result
-        } catch let ollamaErr as OllamaError {
-            throw ollamaErr
-        } catch {
-            throw OllamaError.decode(error.localizedDescription)
         }
+        throw lastError!
     }
 
     private func buildRequest(
         model: String,
         prompt: String,
         keepAlive: String,
-        format: String?,
+        format: Any?,
         think: Bool,
         options: [String: Any]?
     ) -> (URL, [String: Any]) {
@@ -117,7 +120,7 @@ final class OllamaService {
                 "stream": false,
                 "max_tokens": 2048,
             ]
-            if format == "json" {
+            if format is String, let fmt = format as? String, fmt == "json" {
                 payload["response_format"] = ["type": "json_object"]
             }
             return (url, payload)

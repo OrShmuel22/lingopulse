@@ -10,7 +10,8 @@ final class AppConfig {
     private static let DEFAULTS: [String: Any] = [
         "fixer": [
             "model": "gemma3:1b-it-qat",
-            "timeout_seconds": 15
+            "timeout_seconds": 15,
+            "max_retries": 2
         ],
         "dictionary": [
             "model": "gemma3:1b-it-qat",
