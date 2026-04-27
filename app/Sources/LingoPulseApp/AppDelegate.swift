@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var fixer: Fixer?
     private var liveMonitor: LiveTextMonitor?
     private var ghostOverlay: GhostOverlayWindow?
+    private var keepaliveOrchestrator: KeepaliveOrchestrator?
 
     @MainActor func applicationDidFinishLaunching(_ notification: Notification) {
         Notifications.requestAuthorizationIfNeeded()
@@ -51,6 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let spell: SpellChecking = SpellCheck()
         let fixer = Fixer(ollama: ollama, config: config, history: history, ring: ring, spellCheck: spell)
         self.fixer = fixer
+
+        let keepalive = KeepaliveOrchestrator(ollama: ollama, config: config)
+        keepalive.start()
+        self.keepaliveOrchestrator = keepalive
 
         let coordinator = AppCoordinator(fixer: fixer, accessibility: accessibility)
         self.coordinator = coordinator
@@ -106,6 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        keepaliveOrchestrator?.stop()
         Log.info("shutting down.")
     }
 
