@@ -68,6 +68,7 @@ final class Fixer {
         }()
 
         let response: String
+        let generateStart = Date()
         do {
             response = try await ollama.generate(
                 model: model,
@@ -84,6 +85,7 @@ final class Fixer {
         } catch let err as OllamaError {
             throw FixerError.ollama(err)
         }
+        let durationMs = Int(Date().timeIntervalSince(generateStart) * 1000)
 
         let refined: String
         do {
@@ -116,6 +118,11 @@ final class Fixer {
                 "original": trimmed,
                 "refined": refined,
                 "spell_edits": spellEdits.count,
+                "model": model,
+                "tone": tone,
+                "duration_ms": durationMs,
+                "original_chars": trimmed.count,
+                "refined_chars": refined.count,
             ])
         } catch {
             Log.error("Fixer: failed to append to history: \(error)")
