@@ -18,13 +18,12 @@ struct DictionaryTests {
         let enPromptResult = Dictionary.buildPrompt(query: enQuery)
 
         #expect(hePromptResult.contains("Hebrew speaker"))
-        #expect(hePromptResult.contains("confidence"))
         #expect(enPromptResult.contains("precise English words from a description"))
-        #expect(!enPromptResult.contains("confidence"))
+        #expect(!enPromptResult.contains("Hebrew speaker"))
     }
 
-    @Test func parseResponse_validJsonArray() {
-        let input = #"[{"word":"happy","example":"She looked happy.","register":"casual"}]"#
+    @Test func parseResponse_validCandidates() {
+        let input = #"{"candidates":[{"word":"happy","example":"She looked happy.","register":"casual"}]}"#
         let result = Dictionary.parseResponse(input)
         #expect(result.count == 1)
         #expect(result[0].word == "happy")
@@ -32,17 +31,20 @@ struct DictionaryTests {
     }
 
     @Test func parseResponse_strippedMarkdownFences() {
-        let input = "```json\n[{\"word\":\"x\",\"register\":\"casual\",\"example\":\"y\"}]\n```"
+        let input = """
+        ```json
+        {"candidates":[{"word":"x","register":"casual","example":"y"}]}
+        ```
+        """
         let result = Dictionary.parseResponse(input)
         #expect(result.count == 1)
         #expect(result[0].word == "x")
     }
 
-    @Test func parseResponse_regexFallback() {
-        let input = #"some garbage text {"word":"x","register":"casual","example":"y"} more garbage"#
+    @Test func parseResponse_garbageReturnsEmpty() {
+        let input = #"some garbage text {"word":"x","register":"casual"} more garbage"#
         let result = Dictionary.parseResponse(input)
-        #expect(result.count == 1)
-        #expect(result[0].word == "x")
+        #expect(result.isEmpty)
     }
 
     @Test func parseResponse_emptyOnGarbage() {
@@ -51,7 +53,7 @@ struct DictionaryTests {
     }
 
     @Test func parseResponse_confidenceDefault() {
-        let input = #"[{"word":"serene","example":"The lake was serene.","register":"formal"}]"#
+        let input = #"{"candidates":[{"word":"serene","example":"The lake was serene.","register":"formal"}]}"#
         let result = Dictionary.parseResponse(input)
         #expect(result.count == 1)
         #expect(result[0].confidence == "high")
