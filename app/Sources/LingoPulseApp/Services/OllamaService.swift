@@ -6,6 +6,7 @@ enum OllamaError: Error, Equatable {
     case http(Int)
     case decode(String)
     case underlying(String)
+    case invalidResponse
 }
 
 enum OllamaBackend { case ollama, openai }
@@ -52,25 +53,31 @@ final class OllamaService {
         request.timeoutInterval = timeout
 
         let data: Data
-        let response: URLResponse
+        let response: HTTPURLResponse
         do {
             (data, response) = try await withCheckedThrowingContinuation { continuation in
                 session.dataTask(with: request) { d, r, e in
                     if let e {
                         continuation.resume(throwing: e)
-                    } else {
-                        continuation.resume(returning: (d ?? Data(), r!))
+                        return
                     }
+                    guard let http = r as? HTTPURLResponse else {
+                        continuation.resume(throwing: OllamaError.invalidResponse)
+                        return
+                    }
+                    continuation.resume(returning: (d ?? Data(), http))
                 }.resume()
             }
         } catch let urlError as URLError where urlError.code == .timedOut {
             throw OllamaError.timeout
+        } catch let ollamaErr as OllamaError {
+            throw ollamaErr
         } catch {
             throw OllamaError.underlying(error.localizedDescription)
         }
 
-        if let httpResponse = response as? HTTPURLResponse, !(200..<300).contains(httpResponse.statusCode) {
-            throw OllamaError.http(httpResponse.statusCode)
+        if !(200..<300).contains(response.statusCode) {
+            throw OllamaError.http(response.statusCode)
         }
 
         do {

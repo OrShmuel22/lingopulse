@@ -3,6 +3,14 @@ import Foundation
 enum SelectionKind { case code, prose }
 
 enum Prompts {
+    private static func compileOrTrap(_ pattern: String) -> NSRegularExpression {
+        do {
+            return try NSRegularExpression(pattern: pattern)
+        } catch {
+            fatalError("Invalid regex \(pattern): \(error)")
+        }
+    }
+
     static let toneDescriptions: [String: String] = [
         "Casual": "concise, friendly, lowercase allowed, minimal punctuation",
         "Neutral": "balanced clarity and grammar",
@@ -45,7 +53,7 @@ enum Prompts {
 
         let nonWS = text.unicodeScalars.filter { !CharacterSet.whitespaces.union(.newlines).contains($0) }
         if !nonWS.isEmpty {
-            let codeCharPattern = try! NSRegularExpression(pattern: #"[{}()\[\];=<>/|]"#)
+            let codeCharPattern = compileOrTrap(#"[{}()\[\];=<>/|]"#)
             let matchCount = codeCharPattern.numberOfMatches(
                 in: text, range: NSRange(text.startIndex..., in: text))
             if Double(matchCount) / Double(nonWS.count) > 0.15 {
@@ -54,15 +62,15 @@ enum Prompts {
         }
 
         let firstLine = text.drop(while: { $0.isWhitespace || $0.isNewline })
-        let commentPattern = try! NSRegularExpression(pattern: #"^(//|#|/\*|--)"#)
+        let commentPattern = compileOrTrap(#"^(//|#|/\*|--)"#)
         let firstLineStr = String(firstLine)
         if commentPattern.firstMatch(in: firstLineStr,
                                      range: NSRange(firstLineStr.startIndex..., in: firstLineStr)) != nil {
             return .code
         }
 
-        let keywordPattern = try! NSRegularExpression(
-            pattern: #"\b(function|const|let|var|class|import|def|return|if|else|for|while|async|await|public|private|null|None|true|false)\b"#)
+        let keywordPattern = compileOrTrap(
+            #"\b(function|const|let|var|class|import|def|return|if|else|for|while|async|await|public|private|null|None|true|false)\b"#)
         var linesWithKeywords = Set<Int>()
         let nsText = text as NSString
         let fullRange = NSRange(location: 0, length: nsText.length)

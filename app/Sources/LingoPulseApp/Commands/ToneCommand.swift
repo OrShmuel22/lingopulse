@@ -15,16 +15,12 @@ final class ToneCommand {
     }
 
     func execute() async {
-        let selection: String
         let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
-        if let sel = accessibility.readSelection() {
-            selection = sel.text
-        } else if let fb = await accessibility.pasteboardFallbackRead(), !fb.isEmpty {
-            selection = fb
-        } else {
+        guard let sel = await accessibility.readOrFallback() else {
             Notifications.show(title: "LingoPulse", body: "No selection.")
             return
         }
+        let selection = sel.text
 
         let preselected = overrides.tone(for: app) ?? "Neutral"
 

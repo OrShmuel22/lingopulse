@@ -11,14 +11,8 @@ final class CaptureStyleCommand {
     }
 
     func execute() async {
-        let text: String?
         let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
-
-        if let sel = accessibility.readSelection() {
-            text = sel.text
-        } else {
-            text = await accessibility.pasteboardFallbackRead()
-        }
+        let text = await accessibility.readOrFallback()?.text
 
         guard let t = text?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty else {
             Notifications.show(title: "LingoPulse", body: "Select text first to save as style example.")

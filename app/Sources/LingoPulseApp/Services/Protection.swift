@@ -11,10 +11,18 @@ enum ProtectionError: Error {
 
 enum Protection {
     private static let patterns: [NSRegularExpression] = [
-        try! NSRegularExpression(pattern: #"```[\s\S]*?```"#),
-        try! NSRegularExpression(pattern: #"https?://\S+"#),
-        try! NSRegularExpression(pattern: #"`[^`\n]+`"#),
+        compileOrTrap(#"```[\s\S]*?```"#),
+        compileOrTrap(#"https?://\S+"#),
+        compileOrTrap(#"`[^`\n]+`"#),
     ]
+
+    private static func compileOrTrap(_ pattern: String) -> NSRegularExpression {
+        do {
+            return try NSRegularExpression(pattern: pattern)
+        } catch {
+            fatalError("Invalid regex \(pattern): \(error)")
+        }
+    }
 
     static func protect(_ text: String) -> ProtectedText {
         var tokens: [String: String] = [:]

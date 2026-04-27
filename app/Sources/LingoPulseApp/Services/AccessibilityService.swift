@@ -6,6 +6,7 @@ protocol AccessibilityServicing {
     func readSelection() -> Selection?
     @discardableResult func writeFocusedValue(_ text: String) -> Bool
     func pasteboardFallbackRead() async -> String?
+    func readOrFallback() async -> Selection?
 }
 
 // Caller convention for pasteboardFallbackRead:
@@ -14,6 +15,20 @@ protocol AccessibilityServicing {
 //   let selected = await accessibility.pasteboardFallbackRead()
 //   // ... refine, paste back ...
 // The caller owns restore() because the refine flow keeps the clipboard busy for paste-back.
+
+extension AccessibilityServicing {
+    // Default implementation collapses the AX-then-clipboard pattern that every command repeats.
+    // Returns nil only when both reads fail (or the clipboard text is empty) — callers handle the
+    // "no selection" notification themselves to keep wording per-command.
+    func readOrFallback() async -> Selection? {
+        if let sel = readSelection() { return sel }
+        guard let fb = await pasteboardFallbackRead(), !fb.isEmpty else { return nil }
+        let appName = await MainActor.run {
+            NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
+        }
+        return Selection(text: fb, appName: appName, element: nil)
+    }
+}
 
 final class AccessibilityService: AccessibilityServicing {
     var isTrusted: Bool { AXIsProcessTrusted() }

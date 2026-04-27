@@ -1,5 +1,4 @@
 import Foundation
-import Darwin
 
 actor HistoryStore {
     private let fileURL: URL
@@ -26,13 +25,10 @@ actor HistoryStore {
         var line = String(decoding: data, as: UTF8.self)
         line.append("\n")
 
-        if let handle = FileHandle(forWritingAtPath: fileURL.path) {
-            defer { handle.closeFile() }
-            handle.seekToEndOfFile()
-            handle.write(Data(line.utf8))
-        } else {
-            try Data(line.utf8).write(to: fileURL, options: .atomic)
-        }
+        let existing = (try? Data(contentsOf: fileURL)) ?? Data()
+        var next = existing
+        next.append(Data(line.utf8))
+        try next.write(to: fileURL, options: .atomic)
     }
 
     func readAll() throws -> [[String: Any]] {

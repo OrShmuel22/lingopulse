@@ -45,7 +45,7 @@ private struct OnboardingView: View {
 
     @State private var step: Int = 0
     @State private var axGranted: Bool = AXIsProcessTrusted()
-    @State private var axPollTimer: Timer? = nil
+    @State private var axPollTask: Task<Void, Never>? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -171,26 +171,34 @@ private struct OnboardingView: View {
     }
 
     private func startAXPolling() {
-        guard axPollTimer == nil else { return }
+        guard axPollTask == nil else { return }
         axGranted = AXIsProcessTrusted()
         if axGranted { return }
-        axPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            Task { @MainActor in
+        axPollTask = Task { @MainActor in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 1_000_000_000)
+                } catch {
+                    return
+                }
+                if Task.isCancelled { return }
                 let trusted = AXIsProcessTrusted()
                 if trusted && !axGranted {
                     axGranted = true
                     stopAXPolling()
+                    return
                 }
             }
         }
     }
 
     private func stopAXPolling() {
-        axPollTimer?.invalidate()
-        axPollTimer = nil
+        axPollTask?.cancel()
+        axPollTask = nil
     }
 
     private func relaunchApp() {
+        stopAXPolling()
         guard let bundlePath = Bundle.main.bundlePath as String? else {
             NSApp.terminate(nil)
             return

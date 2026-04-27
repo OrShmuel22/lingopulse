@@ -13,12 +13,7 @@ final class DictionaryCommand {
     }
 
     func execute() async {
-        let query: String?
-        if let sel = accessibility.readSelection() {
-            query = sel.text
-        } else {
-            query = await accessibility.pasteboardFallbackRead()
-        }
+        let query = await accessibility.readOrFallback()?.text
         guard let q = query?.trimmingCharacters(in: .whitespacesAndNewlines), !q.isEmpty else {
             Notifications.show(title: "LingoPulse", body: "Select a word or description first.")
             return

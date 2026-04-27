@@ -20,12 +20,7 @@ final class UndoCommand {
     }
 
     func execute() async {
-        let currentSelection: String?
-        if let sel = accessibility.readSelection() {
-            currentSelection = sel.text
-        } else {
-            currentSelection = await accessibility.pasteboardFallbackRead()
-        }
+        let currentSelection = await accessibility.readOrFallback()?.text
 
         guard let entries = try? await ring.listAll(), !entries.isEmpty else {
             notify("LingoPulse", "Nothing to undo.")

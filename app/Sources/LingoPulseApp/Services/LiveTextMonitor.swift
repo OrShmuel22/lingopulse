@@ -33,6 +33,12 @@ final class LiveTextMonitor {
         self.onSuggestion = onSuggestion
     }
 
+    deinit {
+        // ensure AXObserver removed before self is freed — see Unmanaged.passUnretained usage above.
+        // Owner is @MainActor (AppDelegate), so final release runs on main thread → assumeIsolated is safe.
+        MainActor.assumeIsolated { stop() }
+    }
+
     func start() {
         NSWorkspace.shared.notificationCenter
             .publisher(for: NSWorkspace.didActivateApplicationNotification)
@@ -62,6 +68,7 @@ final class LiveTextMonitor {
         var observer: AXObserver?
         let cb: AXObserverCallback = { _, element, notification, refcon in
             guard let refcon = refcon else { return }
+            // self must outlive registered AXObserver — guaranteed by deinit { stop() }
             let monitor = Unmanaged<LiveTextMonitor>.fromOpaque(refcon).takeUnretainedValue()
             let notifStr = notification as String
             Task { @MainActor in monitor.handleNotification(notifStr, element: element) }
@@ -69,6 +76,7 @@ final class LiveTextMonitor {
         let createStatus = AXObserverCreate(pid, cb, &observer)
         guard createStatus == .success, let obs = observer else { return }
 
+        // self must outlive registered AXObserver — guaranteed by deinit { stop() }
         let refcon = Unmanaged.passUnretained(self).toOpaque()
         AXObserverAddNotification(obs, appElement, kAXFocusedUIElementChangedNotification as CFString, refcon)
 
@@ -89,6 +97,7 @@ final class LiveTextMonitor {
         }
         focusedElement = element
         guard let obs = axObserver else { return }
+        // self must outlive registered AXObserver — guaranteed by deinit { stop() }
         let refcon = Unmanaged.passUnretained(self).toOpaque()
         AXObserverAddNotification(obs, element, kAXValueChangedNotification as CFString, refcon)
         AXObserverAddNotification(obs, element, kAXSelectedTextChangedNotification as CFString, refcon)
@@ -146,6 +155,8 @@ final class LiveTextMonitor {
         return s
     }
 
+    // Idempotent: guards on `axObserver` being non-nil, sets all properties to nil,
+    // and uses optional chaining on debounceTask. Safe to call multiple times.
     private func detach() {
         if let obs = axObserver {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)

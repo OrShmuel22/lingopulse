@@ -17,12 +17,7 @@ final class AppCoordinator {
         currentRefineTask = Task { @MainActor in
             let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
 
-            let selectionText: String
-            if let sel = accessibility.readSelection() {
-                selectionText = sel.text
-            } else if let fallback = await accessibility.pasteboardFallbackRead(), !fallback.isEmpty {
-                selectionText = fallback
-            } else {
+            guard let sel = await accessibility.readOrFallback() else {
                 if !accessibility.isTrusted {
                     Notifications.show(title: "LingoPulse", body: "Accessibility permission revoked. Re-enable in System Settings → Privacy → Accessibility.")
                 } else {
@@ -30,6 +25,7 @@ final class AppCoordinator {
                 }
                 return
             }
+            let selectionText = sel.text
 
             if await fixer.alreadyRefined(selectionText) {
                 Log.info("skip — selection matches recent refinement")

@@ -55,9 +55,6 @@ final class AppConfig {
         ],
         "personal_dict": [
             "path": "~/.config/lingopulse/personal_dict.json"
-        ],
-        "daemon": [
-            "port": 17823
         ]
     ]
 
@@ -104,13 +101,17 @@ final class AppConfig {
             }
             return DEFAULTS
         }
-        guard
-            let data = try? Data(contentsOf: url),
-            let userConfig = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else {
+        do {
+            let data = try Data(contentsOf: url)
+            guard let userConfig = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                Log.error("AppConfig: failed to parse \(url.path), using defaults: top-level JSON is not an object")
+                return DEFAULTS
+            }
+            return deepMerge(base: DEFAULTS, override: userConfig)
+        } catch {
+            Log.error("AppConfig: failed to parse \(url.path), using defaults: \(error)")
             return DEFAULTS
         }
-        return deepMerge(base: DEFAULTS, override: userConfig)
     }
 
     private static func deepMerge(base: [String: Any], override: [String: Any]) -> [String: Any] {

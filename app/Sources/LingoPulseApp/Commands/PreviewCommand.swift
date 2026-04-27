@@ -20,16 +20,12 @@ final class PreviewCommand {
     }
 
     func execute() async {
-        let selection: String
         let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
-        if let sel = accessibility.readSelection() {
-            selection = sel.text
-        } else if let fb = await accessibility.pasteboardFallbackRead(), !fb.isEmpty {
-            selection = fb
-        } else {
+        guard let sel = await accessibility.readOrFallback() else {
             notify("LingoPulse", "No selection.")
             return
         }
+        let selection = sel.text
 
         let result: FixerResult
         do {

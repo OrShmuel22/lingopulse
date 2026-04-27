@@ -8,7 +8,15 @@ struct DictionaryCandidate: Equatable {
 }
 
 enum Dictionary {
-    static let hebrewRegex = try! NSRegularExpression(pattern: "[֐-׿]")
+    static let hebrewRegex = compileOrTrap("[֐-׿]")
+
+    private static func compileOrTrap(_ pattern: String) -> NSRegularExpression {
+        do {
+            return try NSRegularExpression(pattern: pattern)
+        } catch {
+            fatalError("Invalid regex \(pattern): \(error)")
+        }
+    }
 
     static func detectHebrew(_ text: String) -> Bool {
         let range = NSRange(text.startIndex..., in: text)

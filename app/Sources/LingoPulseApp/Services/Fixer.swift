@@ -72,19 +72,27 @@ final class Fixer {
         }
 
         let timestamp = isoNow()
-        try? await ring.append([
-            "original": trimmed,
-            "refined": refined,
-            "app": app,
-            "timestamp": timestamp,
-        ])
+        do {
+            try await ring.append([
+                "original": trimmed,
+                "refined": refined,
+                "app": app,
+                "timestamp": timestamp,
+            ])
+        } catch {
+            Log.error("Fixer: failed to append to ring: \(error)")
+        }
 
-        try? await history.append([
-            "mode": "fixer_refine",
-            "app": app,
-            "original": trimmed,
-            "refined": refined,
-        ])
+        do {
+            try await history.append([
+                "mode": "fixer_refine",
+                "app": app,
+                "original": trimmed,
+                "refined": refined,
+            ])
+        } catch {
+            Log.error("Fixer: failed to append to history: \(error)")
+        }
 
         return FixerResult(original: trimmed, refined: refined, app: app)
     }
