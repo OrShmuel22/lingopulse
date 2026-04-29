@@ -232,7 +232,87 @@ private func ok200(url: URL) -> HTTPURLResponse {
         #expect(caughtError == .timeout)
     }
 
-    // MARK: 5. HTTP non-2xx maps to .http(code)
+    // MARK: 5. Gemma 4 thought-tag stripping
+
+    @Test func stripGemmaArtifactsRemovesEmptyThoughtBlock() {
+        let raw = "<|channel>thought\n<channel|>Hello world"
+        #expect(OllamaService.stripGemmaArtifacts(raw) == "Hello world")
+    }
+
+    @Test func stripGemmaArtifactsRemovesNonEmptyThoughtBlock() {
+        let raw = "<|channel>thought\nLet me think about this carefully<channel|>Final answer."
+        #expect(OllamaService.stripGemmaArtifacts(raw) == "Final answer.")
+    }
+
+    @Test func stripGemmaArtifactsRemovesStrayThinkToken() {
+        let raw = "<|think|>Hello"
+        #expect(OllamaService.stripGemmaArtifacts(raw) == "Hello")
+    }
+
+    @Test func stripGemmaArtifactsIsNoOpForCleanText() {
+        let raw = "I'm going to the store."
+        #expect(OllamaService.stripGemmaArtifacts(raw) == raw)
+    }
+
+    @Test func stripGemmaArtifactsHandlesMultilineThought() {
+        let raw = "<|channel>thought\nline 1\nline 2\nline 3<channel|>OK"
+        #expect(OllamaService.stripGemmaArtifacts(raw) == "OK")
+    }
+
+    @Test @MainActor func generateStripsArtifactsFromResponse() async throws {
+        let session = makeMockSession()
+        MockURLProtocol.handler = { req in
+            (ok200(url: req.url!), ollamaResponseData("<|channel>thought\n<channel|>I'm going."))
+        }
+        let svc = OllamaService(backend: .ollama, host: "http://127.0.0.1:11434", session: session)
+        let result = try await svc.generate(model: "gemma4:e2b", prompt: "fix it")
+        #expect(result == "I'm going.")
+    }
+
+    // MARK: 6. ThoughtTagFilter (streaming)
+
+    @Test func thoughtFilterEmitsTokensOutsideTag() {
+        let filter = OllamaService.ThoughtTagFilter()
+        var out = ""
+        out += filter.feed("<|channel>")
+        out += filter.feed("thought\n")
+        out += filter.feed("<channel|>")
+        out += filter.feed("Hello ")
+        out += filter.feed("world")
+        out += filter.flush()
+        #expect(out == "Hello world")
+    }
+
+    @Test func thoughtFilterHandlesTokenSplitInsideTag() {
+        // Marker boundaries straddle three tokens.
+        let filter = OllamaService.ThoughtTagFilter()
+        var out = ""
+        out += filter.feed("<|cha")
+        out += filter.feed("nnel>thought<channel")
+        out += filter.feed("|>Hello")
+        out += filter.flush()
+        #expect(out == "Hello")
+    }
+
+    @Test func thoughtFilterPreservesPlainAngleBrackets() {
+        let filter = OllamaService.ThoughtTagFilter()
+        var out = ""
+        out += filter.feed("a < b and ")
+        out += filter.feed("c > d")
+        out += filter.flush()
+        #expect(out == "a < b and c > d")
+    }
+
+    @Test func thoughtFilterDropsUnterminatedTagAtEOF() {
+        let filter = OllamaService.ThoughtTagFilter()
+        var out = ""
+        out += filter.feed("<|channel>thought never ")
+        out += filter.feed("closed")
+        out += filter.flush()
+        #expect(out == "")
+    }
+
+    // MARK: 7. HTTP non-2xx maps to .http(code)
 
     @Test @MainActor func http500MapsToOllamaHttpError() async throws {
         let session = makeMockSession()

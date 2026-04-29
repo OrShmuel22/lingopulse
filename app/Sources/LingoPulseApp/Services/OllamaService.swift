@@ -27,6 +27,21 @@ final class OllamaService {
     private let session: URLSession
     private var inFlightModels: Set<String> = []
 
+    // Gemma 4 emits a thought-channel block (`<|channel>thought\n...<channel|>`)
+    // before its actual answer. The E2B variant emits an empty block even when
+    // thinking is disabled — without stripping, those literal tokens leak into
+    // the user's refined text. The pattern is a no-op for non-Gemma-4 models.
+    nonisolated(unsafe) private static let thoughtTagPattern: NSRegularExpression = {
+        let p = #"(?s)<\|channel>.*?<channel\|>|<\|think\|>"#
+        return try! NSRegularExpression(pattern: p)
+    }()
+
+    nonisolated static func stripGemmaArtifacts(_ s: String) -> String {
+        let nsStr = s as NSString
+        let range = NSRange(location: 0, length: nsStr.length)
+        return thoughtTagPattern.stringByReplacingMatches(in: s, range: range, withTemplate: "")
+    }
+
     init(backend: OllamaBackend = .ollama, host: String = "http://127.0.0.1:11434", session: URLSession = .shared) {
         self.backend = backend
         self.host = host
@@ -84,7 +99,7 @@ final class OllamaService {
                 guard let result = text else {
                     throw OllamaError.decode("missing response field")
                 }
-                return result
+                return Self.stripGemmaArtifacts(result)
             } catch let urlError as URLError where urlError.code == .timedOut {
                 lastError = OllamaError.timeout
             } catch let ollamaError as OllamaError {
@@ -180,6 +195,7 @@ final class OllamaService {
         }
 
         var accumulated = ""
+        let filter = ThoughtTagFilter()
         do {
             for try await line in bytes.lines {
                 guard !line.isEmpty,
@@ -188,8 +204,11 @@ final class OllamaService {
                     continue
                 }
                 if let token = json["response"] as? String, !token.isEmpty {
-                    accumulated += token
-                    onToken(token)
+                    let cleaned = filter.feed(token)
+                    if !cleaned.isEmpty {
+                        accumulated += cleaned
+                        onToken(cleaned)
+                    }
                 }
                 if (json["done"] as? Bool) == true { break }
             }
@@ -197,6 +216,11 @@ final class OllamaService {
             throw OllamaError.timeout
         } catch {
             throw OllamaError.underlying(error.localizedDescription)
+        }
+        let tail = filter.flush()
+        if !tail.isEmpty {
+            accumulated += tail
+            onToken(tail)
         }
         return accumulated
     }
@@ -237,6 +261,80 @@ final class OllamaService {
             let details = dict["details"] as? [String: Any]
             let paramSize = details?["parameter_size"] as? String
             return OllamaModelInfo(name: name, size: size, parameterSize: paramSize)
+        }
+    }
+
+    /// Stateful filter that strips Gemma 4 thought-channel blocks from a stream of
+    /// tokens. The opening (`<|channel>`) and closing (`<channel|>`) markers may
+    /// straddle token boundaries; this class buffers any suffix that could become
+    /// a marker so the caller never sees partial tags. Content emitted inside a
+    /// thought block is dropped entirely.
+    nonisolated
+    final class ThoughtTagFilter {
+        private static let openTag = "<|channel>"
+        private static let closeTag = "<channel|>"
+
+        private var inThought = false
+        private var pending = ""
+
+        func feed(_ token: String) -> String {
+            pending += token
+            return drain()
+        }
+
+        func flush() -> String {
+            // Unclosed thought block at EOF: drop. Otherwise emit any held suffix
+            // (it can't grow into a tag now).
+            let result = inThought ? "" : pending
+            pending = ""
+            inThought = false
+            return result
+        }
+
+        private func drain() -> String {
+            var out = ""
+            while !pending.isEmpty {
+                if !inThought {
+                    if let r = pending.range(of: Self.openTag) {
+                        out += pending[..<r.lowerBound]
+                        pending = String(pending[r.upperBound...])
+                        inThought = true
+                        continue
+                    }
+                    let safe = safePrefixCount(of: pending, against: Self.openTag)
+                    let cut = pending.index(pending.startIndex, offsetBy: safe)
+                    out += pending[..<cut]
+                    pending = String(pending[cut...])
+                    return out
+                } else {
+                    if let r = pending.range(of: Self.closeTag) {
+                        pending = String(pending[r.upperBound...])
+                        inThought = false
+                        continue
+                    }
+                    let safe = safePrefixCount(of: pending, against: Self.closeTag)
+                    let cut = pending.index(pending.startIndex, offsetBy: safe)
+                    pending = String(pending[cut...])
+                    return out
+                }
+            }
+            return out
+        }
+
+        // Length of the prefix of `s` that is guaranteed not to be (part of) a
+        // future occurrence of `tag`. Equivalent to `s.count` minus the longest
+        // suffix of `s` that is a prefix of `tag`.
+        private func safePrefixCount(of s: String, against tag: String) -> Int {
+            if s.isEmpty { return 0 }
+            let maxOverlap = min(s.count, tag.count - 1)
+            for k in stride(from: maxOverlap, through: 1, by: -1) {
+                let suffixStart = s.index(s.endIndex, offsetBy: -k)
+                let suffix = s[suffixStart...]
+                if tag.hasPrefix(suffix) {
+                    return s.count - k
+                }
+            }
+            return s.count
         }
     }
 

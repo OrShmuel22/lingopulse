@@ -82,9 +82,14 @@ final class Fixer {
         // net for pathological inputs without leaving generation unbounded.
         let predictCap = min(2048, max(64, (preCorrected.count * 5) / 3))
 
+        // Editing-mode sampling: deterministic, narrow distribution, no repeat penalty.
+        // Repeat penalty > 1.0 actively breaks the minimum-edit principle by causing
+        // the model to rephrase correct repeated words. top_k caps the candidate set
+        // to high-confidence picks ("only edit when sure").
         let options: [String: Any] = [
             "temperature": 0.1,
             "top_p": 0.9,
+            "top_k": 40,
             "repeat_penalty": 1.0,
             "num_predict": predictCap,
             "stop": ["\nInput:", "\n\n", "\nOutput:"],

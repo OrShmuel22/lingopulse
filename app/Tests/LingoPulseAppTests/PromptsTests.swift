@@ -64,6 +64,35 @@ import Foundation
 
     // MARK: - buildFixerPrompt
 
+    // MARK: - template dispatch by tone
+
+    @Test func grammarOnlyToneUsesStrictTemplate() {
+        let prompt = Prompts.buildFixerPrompt(app: "Mail", tone: "Grammar-only", message: "test")
+        // The strict template's signature phrase
+        #expect(prompt.contains("Grammarly's Correctness mode"))
+        #expect(prompt.contains("Make the smallest possible change"))
+        // The rewrite-template phrase must not be present
+        #expect(!prompt.contains("adjust the text to match the requested tone"))
+    }
+
+    @Test func nonGrammarToneUsesRewriteTemplate() {
+        for tone in ["Casual", "Neutral", "Professional", "Technical"] {
+            let prompt = Prompts.buildFixerPrompt(app: "Mail", tone: tone, message: "test")
+            #expect(prompt.contains("You fix English errors"), "tone=\(tone) should use rewrite template")
+            #expect(!prompt.contains("Grammarly's Correctness mode"), "tone=\(tone) should not use strict template")
+        }
+    }
+
+    @Test func defaultTemplateForGrammarOnlyIsStrict() {
+        let t = Prompts.defaultTemplate(for: "Grammar-only")
+        #expect(t.contains("Grammarly's Correctness mode"))
+    }
+
+    @Test func defaultTemplateForOtherToneIsRewrite() {
+        let t = Prompts.defaultTemplate(for: "Casual")
+        #expect(t.contains("You fix English errors"))
+    }
+
     @Test func buildFixerPromptSubstitutesAllPlaceholders() {
         let prompt = Prompts.buildFixerPrompt(app: "Slack", tone: "Casual", message: "hello wrold")
         #expect(prompt.contains("Slack"))

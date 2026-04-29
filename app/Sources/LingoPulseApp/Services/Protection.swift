@@ -10,10 +10,17 @@ enum ProtectionError: Error {
 }
 
 enum Protection {
+    // Order matters: longer/wrapping patterns first so they consume shorter
+    // matches that would otherwise fragment them. Hebrew runs come last because
+    // they can't overlap any of the others (none of those patterns contain
+    // Hebrew code points).
     private static let patterns: [NSRegularExpression] = [
-        compileOrTrap(#"```[\s\S]*?```"#),
-        compileOrTrap(#"https?://\S+"#),
-        compileOrTrap(#"`[^`\n]+`"#),
+        compileOrTrap(#"```[\s\S]*?```"#),                              // fenced code blocks
+        compileOrTrap(#"https?://\S+"#),                                // URLs
+        compileOrTrap(#"`[^`\n]+`"#),                                   // inline code
+        compileOrTrap(#"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"#),                // emails
+        compileOrTrap(#"(?<![\w/])(?:~|\.{1,2})?/[\w.\-]+(?:/[\w.\-]+)+"#), // file paths
+        compileOrTrap(#"[֐-׿]+(?:[  ‎‏]+[֐-׿]+)*"#), // Hebrew runs
     ]
 
     private static func compileOrTrap(_ pattern: String) -> NSRegularExpression {

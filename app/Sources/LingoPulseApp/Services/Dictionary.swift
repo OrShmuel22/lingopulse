@@ -53,6 +53,9 @@ enum Dictionary {
       "confidence": one of "high", "low"
     Prefer words the user is likely looking for over archaic or obscure options.
     Preserve existing English words from the query if they're already correct.
+    If the query refers to a term you do not recognize (e.g. very recent slang
+    or specialized jargon you are not confident about), return fewer candidates
+    or an empty list rather than inventing definitions.
 
     Query: {query}
 
@@ -73,6 +76,9 @@ enum Dictionary {
     - If you are uncertain about a translation, set confidence="low" and still include it.
     - If you would be guessing, return fewer than 3 candidates rather than padding with uncertain options.
     - Be conservative: prefer common, current words over archaic or rare ones.
+    - If a Hebrew or English term is unfamiliar to you (e.g. very recent slang
+      or specialized jargon you are not confident about), return fewer or zero
+      candidates rather than inventing definitions.
 
     Query: {query}
 
