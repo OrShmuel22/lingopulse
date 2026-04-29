@@ -21,6 +21,7 @@ final class ToneCommand {
             return
         }
         let selection = sel.text
+        let capturedElement = sel.element
 
         let preselected = overrides.tone(for: app) ?? "Neutral"
 
@@ -33,23 +34,11 @@ final class ToneCommand {
                 self.overrides.setTone(picked, for: app)
                 do {
                     let result = try await self.fixer.refine(selection: selection, app: app, toneOverride: picked)
-                    self.applyRefined(result.refined)
+                    self.accessibility.applyTextWithFallback(result.refined, to: capturedElement)
                 } catch {
                     Log.error("tone refine error: \(error)")
                     Notifications.show(title: "LingoPulse", body: "Refine failed: \(error)")
                 }
-            }
-        }
-    }
-
-    private func applyRefined(_ text: String) {
-        if !accessibility.writeFocusedValue(text) {
-            Task { @MainActor in
-                let snap = ClipboardSnapshot()
-                ClipboardService.copy(text)
-                await SelectionService.pasteTextViaShortcut(text)
-                try? await Task.sleep(for: .milliseconds(120))
-                snap.restore()
             }
         }
     }

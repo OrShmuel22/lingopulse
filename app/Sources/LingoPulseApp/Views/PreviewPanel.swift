@@ -17,6 +17,13 @@ final class PreviewPanel {
     private var refinedText: String = ""
     private var previousApp: NSRunningApplication?
     private var hasFiredCallback = false
+    // Callers do `await PreviewPanel().show(...)`. show() is non-blocking, so
+    // the temporary instance would deallocate immediately and the NSEvent
+    // monitors' [weak self] captures would all become nil — the panel would
+    // appear but no keys would be handled. Hold a self reference for the
+    // panel's visible lifetime; release it in fire() / close() so the
+    // instance can be GC'd once dismissed.
+    private var selfReference: PreviewPanel?
 
     /// `axWriteAvailable=false` means the source field is in an app that does
     /// not expose AX text writing (terminals, Claude Code, etc.). In that case
@@ -71,6 +78,7 @@ final class PreviewPanel {
         p.center()
 
         self.panel = p
+        self.selfReference = self
         NSApp.activate(ignoringOtherApps: true)
         p.makeKeyAndOrderFront(nil)
 
@@ -109,9 +117,11 @@ final class PreviewPanel {
             try? await Task.sleep(for: .milliseconds(120))
             callback()
         }
-        // Drop callbacks after firing to avoid double-call.
         onAccept = nil
         onReject = nil
+        // Release the self-retain set in show(). After the dispatched Task
+        // captured `callback`, this instance is no longer needed.
+        selfReference = nil
     }
 
     private func removeMonitors() {

@@ -13,12 +13,30 @@ extension AccessibilityServicing {
     // Try to write `text` to the focused field via AX. On failure, fall back to clipboard paste
     // with snapshot/restore. Used by all "apply refined text" flows so the recovery sequence
     // exists in one place.
+    //
+    // When `element` is provided (captured at selection-read time), the write
+    // targets it directly — this is the reliable path for URL bars and other
+    // fields that lose focus while a panel is on screen, because the lookup
+    // "current frontmost app's focused element" can race with focus
+    // restoration. Pass nil only when no element was captured (clipboard
+    // fallback read).
     @MainActor
-    func applyTextWithFallback(_ text: String, restoreDelayMs: Int = 120) {
+    func applyTextWithFallback(_ text: String, to element: AXUIElement? = nil, restoreDelayMs: Int = 120) {
+        if let element, AXClient.writeValue(to: element, text: text) { return }
         if writeFocusedValue(text) { return }
+        if let element {
+            // AX write rejected (some Chromium / Electron URL bars). Force
+            // focus to the captured element, then synthesize ⌘V — pasted text
+            // replaces whatever's currently selected in that field. Most URL
+            // bars auto-select on focus so this overwrites the URL.
+            AXClient.setSystemwideFocus(element)
+        }
         let snap = ClipboardSnapshot()
         ClipboardService.copy(text)
         Task { @MainActor in
+            // Brief delay so the focus change settles before the synthesized
+            // ⌘V hits the HID event tap.
+            try? await Task.sleep(for: .milliseconds(40))
             await SelectionService.pasteTextViaShortcut(text)
             try? await Task.sleep(for: .milliseconds(restoreDelayMs))
             snap.restore()

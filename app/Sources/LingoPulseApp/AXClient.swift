@@ -54,10 +54,28 @@ enum AXClient {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         guard let focused = copyAttribute(appElement, kAXFocusedUIElementAttribute) else { return false }
         guard let element = asAXUIElement(focused) else { return false }
+        return writeValue(to: element, text: text)
+    }
 
+    /// Replace the value of a specific captured AX element. Use this when the
+    /// element handle was captured at selection-read time, so the write can
+    /// target it directly even if focus has since moved (e.g. while a preview
+    /// panel was on screen). Returns true on success.
+    static func writeValue(to element: AXUIElement, text: String) -> Bool {
         let cfText = text as CFString
         let setResult = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, cfText)
         return setResult == .success
+    }
+
+    /// Make `element` the system-wide focused UI element. Used before
+    /// synthesizing keyboard shortcuts (⌘A / ⌘V) to ensure they hit the right
+    /// field — important for URL bars which lose focus when a panel takes key
+    /// status.
+    @discardableResult
+    static func setSystemwideFocus(_ element: AXUIElement) -> Bool {
+        let systemwide = AXUIElementCreateSystemWide()
+        let result = AXUIElementSetAttributeValue(systemwide, kAXFocusedUIElementAttribute as CFString, element)
+        return result == .success
     }
 
     static func axPoint(from ref: CFTypeRef?) -> CGPoint? {

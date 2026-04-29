@@ -50,9 +50,10 @@ final class AppCoordinator {
                 return
             }
 
+            let capturedElement = sel.element
             do {
                 let result = try await fixer.refine(selection: selectionText, app: appName)
-                if sel.element == nil {
+                if capturedElement == nil {
                     // Source field doesn't expose AX writes (terminals, Claude
                     // Code, Cursor's terminal pane). Show Preview with auto-copy
                     // instead of synthesizing ⌘V — the user can confirm the
@@ -63,7 +64,7 @@ final class AppCoordinator {
                         axWriteAvailable: false,
                         onAccept: { [weak self] in
                             guard let self else { return }
-                            self.accessibility.applyTextWithFallback(result.refined)
+                            self.accessibility.applyTextWithFallback(result.refined, to: nil)
                         },
                         onReject: { [weak self] in
                             guard let self else { return }
@@ -72,7 +73,7 @@ final class AppCoordinator {
                         }
                     )
                 } else {
-                    applyRefined(result.refined)
+                    accessibility.applyTextWithFallback(result.refined, to: capturedElement)
                 }
             } catch FixerError.emptySelection {
                 Log.info("empty selection")
@@ -85,10 +86,6 @@ final class AppCoordinator {
                 Notifications.show(title: "LingoPulse", body: "Refine failed: \(error)")
             }
         }
-    }
-
-    private func applyRefined(_ text: String) {
-        accessibility.applyTextWithFallback(text)
     }
 
     func undoLast() {

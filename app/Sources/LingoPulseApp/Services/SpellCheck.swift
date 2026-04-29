@@ -25,7 +25,11 @@ final class SpellCheck: SpellChecking {
     init(checker: NSSpellChecker = .shared,
          language: String = "en",
          minWordLength: Int = 4,
-         maxEditDistance: Int = 2) {
+         maxEditDistance: Int = 3) {
+        // maxEditDistance was 2; bumped to 3 to catch real-world typos like
+        // spreate→separate (Levenshtein 3) without admitting wildly different
+        // suggestions. The minWordLength=4 guard plus NSSpellChecker's own
+        // ranking already filter most noise.
         self.checker = checker
         self.language = language
         self.minWordLength = minWordLength

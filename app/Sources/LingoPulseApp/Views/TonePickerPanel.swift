@@ -18,6 +18,11 @@ final class TonePickerPanel {
     private var onPick: ((String) -> Void)?
     private var onCancel: (() -> Void)?
     private var previousApp: NSRunningApplication?
+    // Callers use `await TonePickerPanel().show(...)`. show() is non-blocking,
+    // so the temporary instance would deallocate immediately and the NSEvent
+    // monitors' [weak self] would all become nil — the panel would appear but
+    // no keys would be handled. Hold a self reference until dismissal.
+    private var selfReference: TonePickerPanel?
 
     func show(tones: [String], preselected: String, onPick: @escaping (String) -> Void) async {
         if panel != nil { return }
@@ -56,6 +61,7 @@ final class TonePickerPanel {
         p.center()
 
         self.panel = p
+        self.selfReference = self
         NSApp.activate(ignoringOtherApps: true)
         p.makeKeyAndOrderFront(nil)
 
@@ -82,9 +88,8 @@ final class TonePickerPanel {
         let prev = previousApp
         previousApp = nil
         prev?.activate()
-        // Don't fire onPick on cancel; only the cancel callback runs (no-op
-        // here since we built it to just close).
         _ = cancel
+        selfReference = nil
     }
 
     private func fire(_ tone: String) {
@@ -103,6 +108,7 @@ final class TonePickerPanel {
             try? await Task.sleep(for: .milliseconds(120))
             cb?(tone)
         }
+        selfReference = nil
     }
 
     private func removeMonitors() {

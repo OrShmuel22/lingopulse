@@ -12,7 +12,7 @@ enum Prompts {
     }
 
     static let toneDescriptions: [String: String] = [
-        "Casual": "concise, friendly, lowercase allowed, minimal punctuation",
+        "Casual": "concise, friendly, conversational — keep informal phrasing the author already used; capitalize the pronoun \"I\", proper nouns, and acronyms when missing, but never strip capitals the author already wrote",
         "Neutral": "balanced clarity and grammar",
         "Technical": "precise, imperative, documentation-style, clear logic; preserve code identifiers and technical terms",
         "Professional": "polite, structured, standard business English",
@@ -30,13 +30,32 @@ enum Prompts {
     You preserve everything else.
 
     Rules:
-    1. Same number of sentences in output as input.
-    2. If input is correct AND already matches the tone, output = input.
-    3. Keep code, URLs, file paths, emails, names, technical terms, and
+    1. Fix all unambiguous errors:
+       - Spelling typos (spreate → separate, recieve → receive, freind → friend).
+       - Grammar (subject-verb agreement, tense, articles, plurals, pronoun
+         case, fragments, run-ons).
+       - Punctuation (missing commas, periods, apostrophes).
+       - Wrong-word errors (your/you're, its/it's, depend of → depend on).
+       - Awkward phrasing that has no grammatical reading (e.g. "I spreate
+         PR" → "I made a separate PR").
+    2. Same number of sentences in output as input.
+    3. If input is fully correct AND already matches the tone, output = input.
+       Otherwise, fix everything you are confident about.
+    4. Keep code, URLs, file paths, emails, names, technical terms, and
        non-English text (including Hebrew) byte-for-byte verbatim.
-    4. Preserve regional spelling (UK vs US) — keep what the author used.
-    5. Match the requested tone described in the context block below.
-    6. Output the result only. No preamble, no commentary, no markdown unless
+    5. Preserve regional spelling (UK vs US) — keep what the author used.
+    6. Capitalization is correctness, not a tone choice.
+       - ADD missing capitals: lowercase pronoun "i" → "I"; lowercase
+         sentence-initial → uppercase; lowercase proper nouns / brand names
+         that should be capitalized.
+       - PRESERVE author-written capitals: acronyms and initialisms (PR,
+         API, URL, AWS, MR, CI), product names with intentional casing
+         (cycode-common, iPhone, npm), and any uppercase the author used.
+       - Never lowercase something the author wrote uppercase.
+    7. Match the requested tone described in the context block below, but
+       only adjust phrasing — never strip capitalization or punctuation that
+       was already correct, and never invent informality by removing capitals.
+    8. Output the result only. No preamble, no commentary, no markdown unless
        it was in the input.
 
     Examples:
@@ -45,10 +64,16 @@ enum Prompts {
     Output: who is responsible for staging?
 
     Input:  i have informations and feedbacks
-    Output: i have information and feedback
+    Output: I have information and feedback.
 
     Input:  Visit https://example.com for the docs.
     Output: Visit https://example.com for the docs.
+
+    Input:  ok so the PR is ready for review and i updated the cycode-common i spreate PR because i want it to be more clean
+    Output: OK, so the PR is ready for review and I updated cycode-common. I made a separate PR because I want it to be cleaner.
+
+    Input:  i recieve the email yesterday and forgot to reply
+    Output: I received the email yesterday and forgot to reply.
 
     ---
     App: {app}

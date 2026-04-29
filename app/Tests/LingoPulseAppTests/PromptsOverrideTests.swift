@@ -14,7 +14,8 @@ import Foundation
             message: "hi",
             promptOverride: custom
         )
-        #expect(result == "Custom: Slack Casual concise, friendly, lowercase allowed, minimal punctuation hi")
+        let expectedDesc = Prompts.toneDescriptions["Casual"] ?? ""
+        #expect(result == "Custom: Slack Casual \(expectedDesc) hi")
         // Must NOT contain any un-substituted placeholders
         #expect(!result.contains("{app}"))
         #expect(!result.contains("{message}"))

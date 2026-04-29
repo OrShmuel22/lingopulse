@@ -30,6 +30,7 @@ final class PreviewCommand {
         // Almost always implies AX write will fail too — flag the panel so it
         // pre-copies the refined text and shows the keyboard-only paste flow.
         let axWriteAvailable = sel.element != nil
+        let capturedElement = sel.element
 
         let result: FixerResult
         do {
@@ -46,7 +47,10 @@ final class PreviewCommand {
             axWriteAvailable: axWriteAvailable,
             onAccept: { [weak self] in
                 guard let self = self else { return }
-                self.applyRefined(result.refined)
+                // Use the element captured at refine time. Fresh focused-element
+                // lookup races with focus restoration after the panel dismisses
+                // (especially in browser URL bars).
+                self.accessibility.applyTextWithFallback(result.refined, to: capturedElement)
             },
             onReject: { [weak self] in
                 guard let self = self else { return }
@@ -54,17 +58,5 @@ final class PreviewCommand {
                 Log.info("preview rejected — rolled back ring entry")
             }
         )
-    }
-
-    private func applyRefined(_ text: String) {
-        if !accessibility.writeFocusedValue(text) {
-            Task { @MainActor in
-                let snap = ClipboardSnapshot()
-                ClipboardService.copy(text)
-                await SelectionService.pasteTextViaShortcut(text)
-                try? await Task.sleep(for: .milliseconds(120))
-                snap.restore()
-            }
-        }
     }
 }
