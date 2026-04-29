@@ -24,13 +24,18 @@ final class DictionaryCommand {
         let model = Preferences.shared.dictionaryModel ?? modelFromConfig
         let timeout = config.value(at: "dictionary.timeout_seconds", as: Double.self) ?? 15.0
 
+        // Up to 3 candidates × ~80 tokens each + JSON overhead. 384 covers worst case.
+        let useStrictSchema = Preferences.shared.dictionaryStrictSchema
+        let format: Any = useStrictSchema ? Dictionary.jsonSchema : "json"
+
         do {
             let raw = try await ollama.generate(
                 model: model,
                 prompt: prompt,
                 keepAlive: "30m",
-                format: Dictionary.jsonSchema,
-                timeout: timeout
+                format: format,
+                timeout: timeout,
+                options: ["num_predict": 384]
             )
             let candidates = Dictionary.parseResponse(raw)
 

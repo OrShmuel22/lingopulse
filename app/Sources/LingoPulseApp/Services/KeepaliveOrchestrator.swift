@@ -6,11 +6,14 @@ final class KeepaliveOrchestrator {
     private let config: AppConfig
     private var timer: Timer?
     private let keepAliveDuration: String
+    private let inactiveKeepAlive: String
+    private var lastTickWasActive: Bool = true
 
     init(ollama: OllamaService, config: AppConfig) {
         self.ollama = ollama
         self.config = config
         self.keepAliveDuration = config.value(at: "keepalive.ollama_keep_alive") ?? "30m"
+        self.inactiveKeepAlive = config.value(at: "keepalive.inactive_keep_alive") ?? "5m"
     }
 
     func start() {
@@ -42,11 +45,22 @@ final class KeepaliveOrchestrator {
     }
 
     private func onTimerTick() async {
-        guard isInActiveHours() else {
-            Log.debug("KeepaliveOrchestrator: outside active hours, skipping ping")
+        let active = isInActiveHours()
+        defer { lastTickWasActive = active }
+
+        if !active {
+            // Just transitioned active→inactive: send one ping with short
+            // keep_alive so the model unloads soon and frees RAM. After that,
+            // skip all pings until we cross back into active hours.
+            if lastTickWasActive {
+                Log.debug("KeepaliveOrchestrator: leaving active hours, scheduling unload via short keep_alive")
+                await ping(keepAlive: inactiveKeepAlive)
+            } else {
+                Log.debug("KeepaliveOrchestrator: outside active hours, skipping ping")
+            }
             return
         }
-        await ping()
+        await ping(keepAlive: keepAliveDuration)
     }
 
     private func warmup() async {
@@ -66,14 +80,14 @@ final class KeepaliveOrchestrator {
         }
     }
 
-    private func ping() async {
+    private func ping(keepAlive: String) async {
         let model = resolveModel()
-        Log.debug("KeepaliveOrchestrator: pinging \(model)")
+        Log.debug("KeepaliveOrchestrator: pinging \(model) (keep_alive=\(keepAlive))")
         do {
             _ = try await ollama.generate(
                 model: model,
                 prompt: "",
-                keepAlive: keepAliveDuration,
+                keepAlive: keepAlive,
                 timeout: 10.0,
                 maxRetries: 1
             )

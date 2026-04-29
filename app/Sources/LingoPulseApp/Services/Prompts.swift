@@ -19,6 +19,9 @@ enum Prompts {
         "Grammar-only": "fix grammar and spelling only; do not change tone or wording unless grammatically required",
     ]
 
+    // Static prefix block: byte-for-byte identical across calls so Ollama can
+    // reuse the KV cache. Dynamic context (app/tone/message) is appended after
+    // the --- divider; only the suffix gets recomputed on cache hit.
     static let fixerTemplate: String = """
     You fix English errors. You preserve everything else.
 
@@ -26,10 +29,7 @@ enum Prompts {
     1. Same number of sentences in output as input.
     2. If input is correct, output = input. Do not rephrase clean text.
     3. Keep code, URLs, names, technical terms, and Hebrew text verbatim.
-    4. Match the original tone — {tone_description}.
-
-    App: {app}
-    Tone: {tone_name}
+    4. Match the requested tone described in the context block below.
 
     Examples:
 
@@ -39,8 +39,9 @@ enum Prompts {
     Input:  i have informations and feedbacks
     Output: i have information and feedback
 
-    Input:  Ok, I've tested the app; there are small fixes.
-    Output: Ok, I've tested the app; there are small fixes.
+    ---
+    App: {app}
+    Tone: {tone_name} — {tone_description}
 
     Input:  {message}
     Output:

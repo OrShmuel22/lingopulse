@@ -106,12 +106,12 @@ private struct OnboardingView: View {
                 .font(.title.bold())
 
             if axGranted {
-                Text("Accessibility access granted. LingoPulse can now read and refine text in any app.")
+                Text("Accessibility access granted. Continuing in a moment…")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 40)
             } else {
-                Text("LingoPulse needs Accessibility access to read and refine selected text.\n\nStep 1: Open System Settings → Privacy & Security → Accessibility. Toggle LingoPulse ON.\nStep 2: Restart LingoPulse so the new permission takes effect (macOS caches this per-process).")
+                Text("LingoPulse needs Accessibility access to read and refine selected text.\n\nClick Open System Settings → toggle LingoPulse ON. This window will detect it automatically.")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 32)
@@ -121,12 +121,12 @@ private struct OnboardingView: View {
                     Button("Open System Settings") {
                         requestAXAccess()
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
 
-                    Button("I Granted — Restart LingoPulse") {
+                    Button("Still not working? Restart") {
                         relaunchApp()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
                 }
                 .padding(.top, 4)
             }
@@ -240,6 +240,10 @@ private struct OnboardingView: View {
                 if trusted && !axGranted {
                     axGranted = true
                     stopAXPolling()
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    if !Task.isCancelled && step == 1 {
+                        step = 2
+                    }
                     return
                 }
             }

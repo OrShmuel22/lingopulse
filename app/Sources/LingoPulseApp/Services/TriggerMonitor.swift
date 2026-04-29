@@ -6,7 +6,7 @@ import AppKit
 final class TriggerMonitor {
 
     enum SingleKey { case rightCommand, rightOption, fn }
-    enum DoubleTapMod { case shift, command, option }
+    enum DoubleTapMod { case off, shift, command, option }
 
     private var stateMachine: TriggerStateMachine
     private let onSingleKey: () -> Void
@@ -16,6 +16,8 @@ final class TriggerMonitor {
     private var localFlagsMonitor: Any?
     private var globalKeyMonitor: Any?
     private var localKeyMonitor: Any?
+    private var globalMouseMonitor: Any?
+    private var localMouseMonitor: Any?
 
     init(onSingleKey: @escaping () -> Void,
          onDoubleTap: @escaping () -> Void,
@@ -42,6 +44,10 @@ final class TriggerMonitor {
 
         let flagsMask: NSEvent.EventTypeMask = .flagsChanged
         let keyMask: NSEvent.EventTypeMask = .keyDown
+        // Mouse clicks must also dirty the double-tap state — otherwise a
+        // shift-click ... shift-click sequence (very common in editors) fires
+        // a spurious double-tap because no .keyDown event lands between the taps.
+        let mouseMask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
 
         globalFlagsMonitor = NSEvent.addGlobalMonitorForEvents(matching: flagsMask) { [weak self] event in
             self?.handleFlags(event)
@@ -57,6 +63,13 @@ final class TriggerMonitor {
             self?.handleKeyDown(event)
             return event
         }
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: mouseMask) { [weak self] event in
+            self?.handleMouseDown(event)
+        }
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: mouseMask) { [weak self] event in
+            self?.handleMouseDown(event)
+            return event
+        }
     }
 
     func stop() {
@@ -64,10 +77,14 @@ final class TriggerMonitor {
         if let m = localFlagsMonitor  { NSEvent.removeMonitor(m) }
         if let m = globalKeyMonitor   { NSEvent.removeMonitor(m) }
         if let m = localKeyMonitor    { NSEvent.removeMonitor(m) }
+        if let m = globalMouseMonitor { NSEvent.removeMonitor(m) }
+        if let m = localMouseMonitor  { NSEvent.removeMonitor(m) }
         globalFlagsMonitor = nil
         localFlagsMonitor  = nil
         globalKeyMonitor   = nil
         localKeyMonitor    = nil
+        globalMouseMonitor = nil
+        localMouseMonitor  = nil
         stateMachine.reset()
     }
 
@@ -88,6 +105,12 @@ final class TriggerMonitor {
     }
 
     private func handleKeyDown(_ event: NSEvent) {
+        let tsMs = UInt64(event.timestamp * 1000)
+        let output = stateMachine.handle(.otherKeyDown(timestampMs: tsMs))
+        dispatch(output)
+    }
+
+    private func handleMouseDown(_ event: NSEvent) {
         let tsMs = UInt64(event.timestamp * 1000)
         let output = stateMachine.handle(.otherKeyDown(timestampMs: tsMs))
         dispatch(output)
@@ -202,6 +225,7 @@ struct TriggerStateMachine {
 
     private func isDoubleTapKey(_ kc: UInt16) -> Bool {
         switch doubleTapModifier {
+        case .off:     return false
         case .shift:   return kc == Self.kcLeftShift || kc == Self.kcRightShift
         case .command: return kc == Self.kcLeftCommand || kc == Self.kcRightCommand
         case .option:  return kc == Self.kcLeftOption || kc == Self.kcRightOption

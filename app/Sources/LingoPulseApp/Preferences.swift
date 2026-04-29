@@ -32,6 +32,7 @@ final class Preferences: ObservableObject {
         static let dictionaryModel = "lp.dictionaryModel"
         static let fixerPromptOverride = "lp.fixerPromptOverride"
         static let toneOverridesJSON = "lp.toneOverridesJSON"
+        static let dictionaryStrictSchema = "lp.dictionaryStrictSchema"
     }
 
     static let defaultExcludedApps: Set<String> = [
@@ -98,6 +99,11 @@ final class Preferences: ObservableObject {
             else { defaults.removeObject(forKey: Key.fixerPromptOverride) }
         }
     }
+    // true = grammar-constrained JSON schema (slower, never malformed).
+    // false = format:"json" with tolerant parser (faster, rare parse failures).
+    @Published var dictionaryStrictSchema: Bool {
+        didSet { defaults.set(dictionaryStrictSchema, forKey: Key.dictionaryStrictSchema) }
+    }
     // empty dict means "use built-in toneDescriptions"
     @Published var toneOverrides: [String: String] {
         didSet {
@@ -127,6 +133,7 @@ final class Preferences: ObservableObject {
         self.fixerModel = defaults.string(forKey: Key.fixerModel)
         self.dictionaryModel = defaults.string(forKey: Key.dictionaryModel)
         self.fixerPromptOverride = defaults.string(forKey: Key.fixerPromptOverride)
+        self.dictionaryStrictSchema = defaults.object(forKey: Key.dictionaryStrictSchema) as? Bool ?? true
         if let data = defaults.data(forKey: Key.toneOverridesJSON),
            let dict = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
             self.toneOverrides = dict

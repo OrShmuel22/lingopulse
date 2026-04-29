@@ -20,6 +20,7 @@ final class AppConfig {
         "keepalive": [
             "enabled": true,
             "ollama_keep_alive": "30m",
+            "inactive_keep_alive": "5m",
             "ping_interval_minutes": 25,
             "active_hours_start": "08:00",
             "active_hours_end": "22:00",

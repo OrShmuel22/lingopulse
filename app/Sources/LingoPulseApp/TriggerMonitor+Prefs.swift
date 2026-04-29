@@ -23,6 +23,7 @@ extension TriggerMonitor.SingleKey {
 extension TriggerMonitor.DoubleTapMod {
     init(prefValue: String) {
         switch prefValue {
+        case "off":     self = .off
         case "command": self = .command
         case "option":  self = .option
         default:        self = .shift
@@ -31,6 +32,7 @@ extension TriggerMonitor.DoubleTapMod {
 
     var prefValue: String {
         switch self {
+        case .off:     return "off"
         case .shift:   return "shift"
         case .command: return "command"
         case .option:  return "option"
