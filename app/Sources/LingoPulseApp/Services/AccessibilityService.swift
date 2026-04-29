@@ -9,6 +9,23 @@ protocol AccessibilityServicing {
     func readOrFallback() async -> Selection?
 }
 
+extension AccessibilityServicing {
+    // Try to write `text` to the focused field via AX. On failure, fall back to clipboard paste
+    // with snapshot/restore. Used by all "apply refined text" flows so the recovery sequence
+    // exists in one place.
+    @MainActor
+    func applyTextWithFallback(_ text: String, restoreDelayMs: Int = 120) {
+        if writeFocusedValue(text) { return }
+        let snap = ClipboardSnapshot()
+        ClipboardService.copy(text)
+        Task { @MainActor in
+            await SelectionService.pasteTextViaShortcut(text)
+            try? await Task.sleep(for: .milliseconds(restoreDelayMs))
+            snap.restore()
+        }
+    }
+}
+
 // Caller convention for pasteboardFallbackRead:
 //   let snap = ClipboardSnapshot()
 //   defer { snap.restore() }

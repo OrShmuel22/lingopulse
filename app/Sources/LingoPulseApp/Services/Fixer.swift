@@ -32,7 +32,16 @@ final class Fixer {
         self.spellCheck = spellCheck
     }
 
-    func refine(selection: String, app: String, toneOverride: String? = nil) async throws -> FixerResult {
+    /// `onToken` enables streaming: when non-nil, tokens are forwarded as they
+    /// arrive from Ollama. The returned `FixerResult` still contains the full
+    /// refined text. UI surfaces that want incremental render should pass a
+    /// closure; callers that only need the final string can leave it nil.
+    func refine(
+        selection: String,
+        app: String,
+        toneOverride: String? = nil,
+        onToken: (@MainActor (String) -> Void)? = nil
+    ) async throws -> FixerResult {
         let trimmed = selection.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw FixerError.emptySelection }
 
@@ -61,27 +70,47 @@ final class Fixer {
 
         let modelFromConfig: String = config.value(at: "fixer.model") ?? "gemma3:1b-it-qat"
         let model: String = prefs.fixerModel ?? modelFromConfig
+        Log.info("refine using model=\(model) (override=\(prefs.fixerModel != nil))")
         let keepAlive: String = config.value(at: "keepalive.ollama_keep_alive") ?? "30m"
         let timeout: Double = {
             if let t: Int = config.value(at: "fixer.timeout_seconds") { return Double(t) }
             return 15.0
         }()
 
+        // Cap generation length: refined output is rarely longer than ~1.7x input.
+        // Floor of 64 covers very short selections; ceiling of 2048 keeps a safety
+        // net for pathological inputs without leaving generation unbounded.
+        let predictCap = min(2048, max(64, (preCorrected.count * 5) / 3))
+
+        let options: [String: Any] = [
+            "temperature": 0.1,
+            "top_p": 0.9,
+            "repeat_penalty": 1.0,
+            "num_predict": predictCap,
+            "stop": ["\nInput:", "\n\n", "\nOutput:"],
+        ]
+
         let response: String
         let generateStart = Date()
         do {
-            response = try await ollama.generate(
-                model: model,
-                prompt: prompt,
-                keepAlive: keepAlive,
-                timeout: timeout,
-                options: [
-                    "temperature": 0.1,
-                    "top_p": 0.9,
-                    "repeat_penalty": 1.0,
-                    "stop": ["\nInput:", "\n\n", "\nOutput:"],
-                ]
-            )
+            if let onToken {
+                response = try await ollama.generateStream(
+                    model: model,
+                    prompt: prompt,
+                    keepAlive: keepAlive,
+                    timeout: timeout,
+                    options: options,
+                    onToken: onToken
+                )
+            } else {
+                response = try await ollama.generate(
+                    model: model,
+                    prompt: prompt,
+                    keepAlive: keepAlive,
+                    timeout: timeout,
+                    options: options
+                )
+            }
         } catch let err as OllamaError {
             throw FixerError.ollama(err)
         }

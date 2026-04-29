@@ -19,6 +19,9 @@ enum OllamaBackend { case ollama, openai }
 
 @MainActor
 final class OllamaService {
+    // Exponential backoff base for retryable errors (timeout/503/429). delay = base * 2^attempt.
+    private static let retryBackoffBaseMs = 300
+
     private let backend: OllamaBackend
     private let host: String
     private let session: URLSession
@@ -102,12 +105,100 @@ final class OllamaService {
             }()
 
             if shouldRetry {
-                let delayMs = 300 * (1 << attempt)
+                let delayMs = Self.retryBackoffBaseMs * (1 << attempt)
                 Log.debug("OllamaService: retry \(attempt + 1)/\(maxRetries) after \(delayMs)ms — \(lastError!)")
                 try await Task.sleep(nanoseconds: UInt64(delayMs) * 1_000_000)
             }
         }
         throw lastError!
+    }
+
+    /// Streaming variant of `generate`. Reads Ollama's NDJSON response line by
+    /// line and forwards each token through `onToken` as it arrives. Returns the
+    /// fully accumulated string once the model emits `done: true`.
+    ///
+    /// Total wall-clock latency is comparable to `generate`, but a UI that
+    /// renders tokens incrementally via `onToken` perceives a much shorter
+    /// time-to-first-token. Callers that don't need incremental render can keep
+    /// using `generate`.
+    func generateStream(
+        model: String,
+        prompt: String,
+        keepAlive: String = "30m",
+        format: Any? = nil,
+        timeout: TimeInterval = 30.0,
+        options: [String: Any]? = nil,
+        onToken: @escaping @MainActor (String) -> Void
+    ) async throws -> String {
+        guard !inFlightModels.contains(model) else { throw OllamaError.busy }
+        inFlightModels.insert(model)
+        defer { inFlightModels.remove(model) }
+
+        guard backend == .ollama else {
+            throw OllamaError.underlying("generateStream only supported on the Ollama backend")
+        }
+
+        let url = URL(string: "\(host)/api/generate")!
+        var payload: [String: Any] = [
+            "model": model,
+            "prompt": prompt,
+            "keep_alive": keepAlive,
+            "stream": true,
+            "think": false,
+        ]
+        if let format { payload["format"] = format }
+        if let options { payload["options"] = options }
+
+        let body: Data
+        do {
+            body = try JSONSerialization.data(withJSONObject: payload)
+        } catch {
+            throw OllamaError.underlying(error.localizedDescription)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        request.timeoutInterval = timeout
+
+        let bytes: URLSession.AsyncBytes
+        let response: URLResponse
+        do {
+            (bytes, response) = try await session.bytes(for: request)
+        } catch let urlError as URLError where urlError.code == .timedOut {
+            throw OllamaError.timeout
+        } catch {
+            throw OllamaError.underlying(error.localizedDescription)
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw OllamaError.invalidResponse
+        }
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            throw OllamaError.http(httpResponse.statusCode)
+        }
+
+        var accumulated = ""
+        do {
+            for try await line in bytes.lines {
+                guard !line.isEmpty,
+                      let data = line.data(using: .utf8),
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    continue
+                }
+                if let token = json["response"] as? String, !token.isEmpty {
+                    accumulated += token
+                    onToken(token)
+                }
+                if (json["done"] as? Bool) == true { break }
+            }
+        } catch let urlError as URLError where urlError.code == .timedOut {
+            throw OllamaError.timeout
+        } catch {
+            throw OllamaError.underlying(error.localizedDescription)
+        }
+        return accumulated
     }
 
     /// GET <host>/api/tags. Throws OllamaError on transport or decoding failure.

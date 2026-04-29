@@ -6,6 +6,10 @@ final class AppCoordinator {
     let fixer: Fixer
     private let accessibility: AccessibilityServicing
     private var currentRefineTask: Task<Void, Never>?
+    private(set) var isRefining: Bool = false {
+        didSet { if oldValue != isRefining { onRefiningChanged?(isRefining) } }
+    }
+    var onRefiningChanged: ((Bool) -> Void)?
 
     init(fixer: Fixer, accessibility: AccessibilityServicing) {
         self.fixer = fixer
@@ -13,15 +17,29 @@ final class AppCoordinator {
     }
 
     func refineFocusedSelection() {
+        if isRefining {
+            NSSound.beep()
+            Log.info("refine ignored — already in flight")
+            return
+        }
         currentRefineTask?.cancel()
+        isRefining = true
         currentRefineTask = Task { @MainActor in
+            defer { isRefining = false }
             let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
 
             guard let sel = await accessibility.readOrFallback() else {
                 if !accessibility.isTrusted {
-                    Notifications.show(title: "LingoPulse", body: "Accessibility permission revoked. Re-enable in System Settings → Privacy → Accessibility.")
+                    Alerts.modal(
+                        key: "ax-revoked",
+                        title: "Accessibility Permission Required",
+                        body: "LingoPulse can't read selected text without Accessibility access. Re-enable it in System Settings → Privacy & Security → Accessibility.",
+                        primaryButton: "Open System Settings",
+                        secondaryButton: "Later",
+                        onPrimary: { Alerts.openAccessibilitySettings() }
+                    )
                 } else {
-                    Notifications.show(title: "LingoPulse", body: "No selection. Select text first.")
+                    Alerts.toast("No text selected — select text and try again.")
                 }
                 return
             }
@@ -49,15 +67,7 @@ final class AppCoordinator {
     }
 
     private func applyRefined(_ text: String) {
-        if !accessibility.writeFocusedValue(text) {
-            Task { @MainActor in
-                let snap = ClipboardSnapshot()
-                ClipboardService.copy(text)
-                await SelectionService.pasteTextViaShortcut(text)
-                try? await Task.sleep(for: .milliseconds(120))
-                snap.restore()
-            }
-        }
+        accessibility.applyTextWithFallback(text)
     }
 
     func undoLast() {

@@ -12,9 +12,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var prefsObservers: Set<AnyCancellable> = []
     private var onboardingWindow: OnboardingWindow?
     private var fixer: Fixer?
+    private var accessibility: AccessibilityServicing?
     private var liveMonitor: LiveTextMonitor?
     private var ghostOverlay: GhostOverlayWindow?
     private var keepaliveOrchestrator: KeepaliveOrchestrator?
+    private var healthMonitor: HealthMonitor?
 
     @MainActor func applicationDidFinishLaunching(_ notification: Notification) {
         Notifications.requestAuthorizationIfNeeded()
@@ -34,12 +36,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let prefs = Preferences.shared
 
         Log.setLevel(prefs.logLevel)
-        prefs.$logLevel
-            .dropFirst()
-            .sink { Log.setLevel($0) }
-            .store(in: &prefsObservers)
+        observePref(prefs.$logLevel) { Log.setLevel($0) }
 
         let accessibility = AccessibilityService()
+        self.accessibility = accessibility
 
         let config = AppConfig.shared
         let ollama = OllamaService()
@@ -60,7 +60,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let coordinator = AppCoordinator(fixer: fixer, accessibility: accessibility)
         self.coordinator = coordinator
 
-        self.menuBar = MenuBarController(coordinator: coordinator)
+        let menuBar = MenuBarController(coordinator: coordinator)
+        self.menuBar = menuBar
+        coordinator.onRefiningChanged = { [weak menuBar] on in
+            menuBar?.setRefining(on)
+        }
+
+        let health = HealthMonitor(ollama: ollama)
+        health.onChange = { [weak menuBar] h in
+            menuBar?.setHealth(h)
+        }
+        health.start()
+        self.healthMonitor = health
 
         let panel = QuickActionPanel()
         self.quickActionPanel = panel
@@ -74,12 +85,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor.start()
         self.triggerMonitor = monitor
 
-        prefs.$triggerSingleKey.dropFirst().sink { [weak self] _ in
+        observePref(prefs.$triggerSingleKey) { [weak self] _ in
             self?.rebuildTriggerMonitor(prefs: prefs, coordinator: coordinator)
-        }.store(in: &prefsObservers)
-        prefs.$triggerDoubleTapMod.dropFirst().sink { [weak self] _ in
+        }
+        observePref(prefs.$triggerDoubleTapMod) { [weak self] _ in
             self?.rebuildTriggerMonitor(prefs: prefs, coordinator: coordinator)
-        }.store(in: &prefsObservers)
+        }
 
         if !prefs.onboardingCompleted {
             let onboarding = OnboardingWindow()
@@ -91,28 +102,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         applyLiveMode(prefs.liveModeEnabled, prefs: prefs)
-        prefs.$liveModeEnabled
-            .dropFirst()
-            .sink { [weak self] enabled in self?.applyLiveMode(enabled, prefs: prefs) }
-            .store(in: &prefsObservers)
+        observePref(prefs.$liveModeEnabled) { [weak self] enabled in
+            self?.applyLiveMode(enabled, prefs: prefs)
+        }
 
         applyShellBridge(prefs.shellBridgeEnabled, fixer: fixer)
-        prefs.$shellBridgeEnabled.dropFirst().sink { [weak self] enabled in
+        observePref(prefs.$shellBridgeEnabled) { [weak self] enabled in
             self?.applyShellBridge(enabled, fixer: fixer)
-        }.store(in: &prefsObservers)
+        }
 
         applyLaunchAtLogin(prefs.launchAtLogin)
-        prefs.$launchAtLogin
-            .dropFirst()
-            .sink { [weak self] enabled in self?.applyLaunchAtLogin(enabled) }
-            .store(in: &prefsObservers)
+        observePref(prefs.$launchAtLogin) { [weak self] enabled in
+            self?.applyLaunchAtLogin(enabled)
+        }
 
         Log.info("app launched, menu bar ready, trigger monitor started.")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         keepaliveOrchestrator?.stop()
+        healthMonitor?.stop()
         Log.info("shutting down.")
+    }
+
+    private func observePref<P: Publisher>(_ publisher: P, action: @escaping (P.Output) -> Void)
+    where P.Failure == Never {
+        publisher.dropFirst().sink(receiveValue: action).store(in: &prefsObservers)
     }
 
     @MainActor private func showQuickActionPanel() {
@@ -201,14 +216,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor private func applyLiveSuggestion(_ s: LiveSuggestion) {
         let result = AXUIElementSetAttributeValue(s.element, kAXValueAttribute as CFString, s.refined as CFString)
         if result == .success { return }
-
-        let snap = ClipboardSnapshot()
-        ClipboardService.copy(s.refined)
-        Task { @MainActor in
-            await SelectionService.pasteTextViaShortcut(s.refined)
-            try? await Task.sleep(for: .milliseconds(150))
-            snap.restore()
-        }
+        // Targeted-element write failed — fall back to focused-field clipboard paste.
+        accessibility?.applyTextWithFallback(s.refined, restoreDelayMs: 150)
     }
 
     private func applyLaunchAtLogin(_ enabled: Bool) {
