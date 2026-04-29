@@ -61,6 +61,22 @@ private struct ModelsSectionView: View {
                 }
             }
 
+            // Different models per command force Ollama to swap weights on every
+            // alternation between Refine and Dictionary (~500ms reload). Warn so
+            // the user can pick one shared model unless they have a strong reason.
+            if let f = prefs.fixerModel, let d = prefs.dictionaryModel, !f.isEmpty, !d.isEmpty, f != d {
+                HStack(alignment: .top) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                    Text("Refine and Dictionary use different models. Ollama will swap weights when you alternate between them, adding ~500ms latency per switch. Pick the same model for both unless you need different ones.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Toggle("Strict JSON schema for Dictionary", isOn: $prefs.dictionaryStrictSchema)
+                .help("On: grammar-constrained sampling guarantees valid JSON but slows generation 15–30%. Off: tolerant parser, faster, rare parse failures.")
+
             if let err = loadError {
                 HStack {
                     Image(systemName: "exclamationmark.triangle")
@@ -103,8 +119,7 @@ private struct FixerPromptSectionView: View {
     @ObservedObject var prefs: Preferences
     @State private var draft: String = ""
     @State private var showPreview = false
-    // Debounce token — cancel previous pending write when user keeps typing
-    @State private var debounceTask: Task<Void, Never>? = nil
+    @State private var debouncer = Debouncer()
 
     var body: some View {
         Section(header: Text("Fixer prompt")) {
@@ -112,12 +127,7 @@ private struct FixerPromptSectionView: View {
                 .font(.system(.body, design: .monospaced))
                 .frame(minHeight: 220)
                 .onChange(of: draft) { _, newValue in
-                    debounceTask?.cancel()
-                    debounceTask = Task {
-                        try? await Task.sleep(nanoseconds: 500_000_000)
-                        guard !Task.isCancelled else { return }
-                        await MainActor.run { prefs.fixerPromptOverride = newValue }
-                    }
+                    debouncer.schedule { prefs.fixerPromptOverride = newValue }
                 }
 
             HStack {
@@ -176,7 +186,7 @@ private struct PromptPreviewView: View {
 private struct TonesSectionView: View {
     @ObservedObject var prefs: Preferences
     @State private var drafts: [String: String] = [:]
-    @State private var debounceTask: Task<Void, Never>? = nil
+    @State private var debouncer = Debouncer()
 
     private var sortedTones: [String] {
         Prompts.toneDescriptions.keys.sorted()
@@ -184,34 +194,36 @@ private struct TonesSectionView: View {
 
     var body: some View {
         Section(header: Text("Tone descriptions")) {
-            ForEach(sortedTones, id: \.self) { tone in
-                ToneRowView(
-                    tone: tone,
-                    draft: Binding(
-                        get: { drafts[tone] ?? "" },
-                        set: { newVal in
-                            drafts[tone] = newVal
-                            scheduleToneFlush()
+            DisclosureGroup("Customize tones (\(sortedTones.count))") {
+                ForEach(sortedTones, id: \.self) { tone in
+                    ToneRowView(
+                        tone: tone,
+                        draft: Binding(
+                            get: { drafts[tone] ?? "" },
+                            set: { newVal in
+                                drafts[tone] = newVal
+                                scheduleToneFlush()
+                            }
+                        ),
+                        placeholder: Prompts.toneDescriptions[tone] ?? "",
+                        onReset: {
+                            drafts[tone] = ""
+                            var updated = prefs.toneOverrides
+                            updated.removeValue(forKey: tone)
+                            prefs.toneOverrides = updated
                         }
-                    ),
-                    placeholder: Prompts.toneDescriptions[tone] ?? "",
-                    onReset: {
-                        drafts[tone] = ""
-                        var updated = prefs.toneOverrides
-                        updated.removeValue(forKey: tone)
-                        prefs.toneOverrides = updated
-                    }
-                )
-            }
-
-            HStack {
-                Spacer()
-                Button("Reset all tones") {
-                    drafts = [:]
-                    prefs.toneOverrides = [:]
+                    )
                 }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.red)
+
+                HStack {
+                    Spacer()
+                    Button("Reset all tones") {
+                        drafts = [:]
+                        prefs.toneOverrides = [:]
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.red)
+                }
             }
         }
         .onAppear {
@@ -220,14 +232,9 @@ private struct TonesSectionView: View {
     }
 
     private func scheduleToneFlush() {
-        debounceTask?.cancel()
-        debounceTask = Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                // Only persist non-empty overrides
-                prefs.toneOverrides = drafts.filter { !$0.value.isEmpty }
-            }
+        debouncer.schedule {
+            // Only persist non-empty overrides
+            prefs.toneOverrides = drafts.filter { !$0.value.isEmpty }
         }
     }
 }
@@ -239,15 +246,23 @@ private struct ToneRowView: View {
     let onReset: () -> Void
 
     var body: some View {
-        HStack {
-            Text(tone)
-                .frame(width: 110, alignment: .leading)
-            TextField(placeholder, text: $draft)
-                .textFieldStyle(.roundedBorder)
-            Button("Reset") {
-                onReset()
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(tone).bold()
+                Spacer()
+                if !draft.isEmpty {
+                    Button("Reset", action: onReset)
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                }
             }
-            .buttonStyle(.borderless)
+            TextField("Override default…", text: $draft)
+                .textFieldStyle(.roundedBorder)
+            Text("Default: \(placeholder)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
         }
+        .padding(.vertical, 2)
     }
 }
