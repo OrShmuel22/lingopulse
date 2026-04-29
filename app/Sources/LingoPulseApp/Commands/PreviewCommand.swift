@@ -26,6 +26,10 @@ final class PreviewCommand {
             return
         }
         let selection = sel.text
+        // Element nil ⇒ AX read failed and we read via clipboard (⌘C synth).
+        // Almost always implies AX write will fail too — flag the panel so it
+        // pre-copies the refined text and shows the keyboard-only paste flow.
+        let axWriteAvailable = sel.element != nil
 
         let result: FixerResult
         do {
@@ -39,6 +43,7 @@ final class PreviewCommand {
         await PreviewPanel().show(
             original: result.original,
             refined: result.refined,
+            axWriteAvailable: axWriteAvailable,
             onAccept: { [weak self] in
                 guard let self = self else { return }
                 self.applyRefined(result.refined)

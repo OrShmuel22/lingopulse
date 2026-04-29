@@ -52,7 +52,28 @@ final class AppCoordinator {
 
             do {
                 let result = try await fixer.refine(selection: selectionText, app: appName)
-                applyRefined(result.refined)
+                if sel.element == nil {
+                    // Source field doesn't expose AX writes (terminals, Claude
+                    // Code, Cursor's terminal pane). Show Preview with auto-copy
+                    // instead of synthesizing ⌘V — the user can confirm the
+                    // refine and paste manually with one keystroke.
+                    await PreviewPanel().show(
+                        original: result.original,
+                        refined: result.refined,
+                        axWriteAvailable: false,
+                        onAccept: { [weak self] in
+                            guard let self else { return }
+                            self.accessibility.applyTextWithFallback(result.refined)
+                        },
+                        onReject: { [weak self] in
+                            guard let self else { return }
+                            Task { _ = try? await self.fixer.ring.popLatest() }
+                            Log.info("right-cmd preview rejected — rolled back ring entry")
+                        }
+                    )
+                } else {
+                    applyRefined(result.refined)
+                }
             } catch FixerError.emptySelection {
                 Log.info("empty selection")
             } catch FixerError.ollama(.busy) {
