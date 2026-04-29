@@ -16,3 +16,6 @@ app/*.dmg
 # Claude agent worktrees and memory
 .claude/
 .claire/
+
+# Python venv (used by benchmark scripts)
+.venv/
