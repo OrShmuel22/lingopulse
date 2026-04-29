@@ -1,0 +1,30 @@
+{
+  "fixer": [
+    {"app": "Slack",   "tone": "Casual",       "text": "hey can you take look on the new PR when you have time?"},
+    {"app": "Slack",   "tone": "Casual",       "text": "i think we shoudl deploy tonight if no body objects"},
+    {"app": "Mail",    "tone": "Professional", "text": "Hi team, attached please find the report for last weeks sprint."},
+    {"app": "Mail",    "tone": "Professional", "text": "I wanted to followup on the action items from yesterdays meeting."},
+    {"app": "Linear",  "tone": "Professional", "text": "Bug repro: open the panel, click refresh, observe stale data shown."},
+    {"app": "Notes",   "tone": "Neutral",      "text": "todo: investigate the spike at 3am, looks correlated with the cron job"},
+    {"app": "Slack",   "tone": "Casual",       "text": "i have informations and feedbacks on the design"},
+    {"app": "Slack",   "tone": "Casual",       "text": "who is responsible on staging?"},
+    {"app": "Mail",    "tone": "Professional", "text": "Apologies for the late reply — I was traveling and just got back to my desk."},
+    {"app": "Slack",   "tone": "Casual",       "text": "Ok, I've tested the app; there are small fixes."},
+    {"app": "Cursor",  "tone": "Technical",    "text": "the function dont returns the correct value when input is empty array"},
+    {"app": "Cursor",  "tone": "Technical",    "text": "we need to handles the edge case where user is not authenticated yet"},
+    {"app": "Slack",   "tone": "Casual",       "text": "אני חושב שצריך לבדוק את ה PR של dani לפני המrge"},
+    {"app": "Slack",   "tone": "Casual",       "text": "the bug is intermittent, happens מאוד rarely on production only"},
+    {"app": "Mail",    "tone": "Professional", "text": "Following our conversation last week, I would like to schedule a follow up call to discuss the proposal in detail and align on the next steps before the end of this quarter so we can start implementation early Q3."},
+    {"app": "Notes",   "tone": "Neutral",      "text": "rough plan: ship behind flag, soak 1 week, ramp 10% then 50% then 100%, monitor p95 latency and error rate"}
+  ],
+  "dictionary": [
+    {"query": "the feeling you get when you see something nostalgic"},
+    {"query": "a person who pretends to know more than they do"},
+    {"query": "מילה באנגלית למצב כשאתה לא יכול להחליט בין שתי אפשרויות"},
+    {"query": "to slowly leak information over time"},
+    {"query": "the gap between what people say and what they mean"},
+    {"query": "ephemeral but in a positive sense"},
+    {"query": "מילה ל nuanced אבל יותר חזק"},
+    {"query": "describing something that is technically correct but misleading"}
+  ]
+}
