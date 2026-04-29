@@ -30,17 +30,28 @@ enum QuickAction: Int, CaseIterable, Identifiable {
     var shortcutHint: String { String(rawValue) }
 }
 
+// Borderless NSPanel that returns true for canBecomeKey so it actually
+// receives keyDown events when made key (default borderless windows reject).
+private final class KeyablePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
 @MainActor
 final class QuickActionPanel {
     private var panel: NSPanel?
     private var monitor: Any?
+    private var globalKeyMonitor: Any?
+    private var globalMouseMonitor: Any?
     private var callback: ((QuickAction?) -> Void)?
+    private var previousApp: NSRunningApplication?
 
     init() {}
 
     func show(anchor: AXUIElement?, onPick: @escaping (QuickAction?) -> Void) {
         if panel != nil { close() }
         callback = onPick
+        previousApp = NSWorkspace.shared.frontmostApplication
 
         let vm = QuickActionPanelViewModel()
         let view = QuickActionView(vm: vm, onSelect: { [weak self] action in
@@ -50,7 +61,7 @@ final class QuickActionPanel {
         let hc = NSHostingController(rootView: view)
         hc.view.frame = NSRect(x: 0, y: 0, width: 240, height: 280)
 
-        let p = NSPanel(
+        let p = KeyablePanel(
             contentRect: hc.view.frame,
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
@@ -62,38 +73,66 @@ final class QuickActionPanel {
         p.backgroundColor = .clear
         p.hasShadow = true
         p.hidesOnDeactivate = false
-        p.becomesKeyOnlyIfNeeded = true
+        p.becomesKeyOnlyIfNeeded = false
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         let origin = panelOrigin(anchor: anchor, size: hc.view.frame.size)
         p.setFrameOrigin(origin)
 
         self.panel = p
-        p.orderFront(nil)
-        p.makeKey()
+        NSApp.activate(ignoringOtherApps: true)
+        p.makeKeyAndOrderFront(nil)
 
         monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
             guard let self else { return event }
             return self.handleKey(event: event, vm: vm)
         }
+        // Global Esc dismisses the panel even when the source app keeps focus
+        // (local monitor only fires when this app is key).
+        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            if event.keyCode == 53 { Task { @MainActor in self?.close() } }
+        }
+        // Click anywhere outside the panel = dismiss.
+        let mouseMask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: mouseMask) { [weak self] _ in
+            Task { @MainActor in self?.close() }
+        }
     }
 
     func close() {
-        if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
+        removeMonitors()
         panel?.orderOut(nil)
         panel = nil
         let cb = callback
         callback = nil
+        let prev = previousApp
+        previousApp = nil
+        prev?.activate()
         cb?(nil)
     }
 
     private func fire(_ action: QuickAction) {
-        if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
+        removeMonitors()
         panel?.orderOut(nil)
         panel = nil
         let cb = callback
         callback = nil
-        cb?(action)
+        let prev = previousApp
+        previousApp = nil
+        prev?.activate()
+        Task { @MainActor in
+            // Wait for source app to actually regain frontmost status before
+            // running the action. Without this, refine/dictionary/etc. read
+            // selection from this app instead of the source field.
+            try? await Task.sleep(for: .milliseconds(120))
+            cb?(action)
+        }
+    }
+
+    private func removeMonitors() {
+        if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
+        if let m = globalKeyMonitor { NSEvent.removeMonitor(m); globalKeyMonitor = nil }
+        if let m = globalMouseMonitor { NSEvent.removeMonitor(m); globalMouseMonitor = nil }
     }
 
     private func handleKey(event: NSEvent, vm: QuickActionPanelViewModel) -> NSEvent? {
@@ -111,12 +150,7 @@ final class QuickActionPanel {
             fire(vm.highlighted)
             return nil
         case 53:
-            let cb = callback
-            callback = nil
-            if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
-            panel?.orderOut(nil)
-            panel = nil
-            cb?(nil)
+            close()
             return nil
         default: return event
         }
