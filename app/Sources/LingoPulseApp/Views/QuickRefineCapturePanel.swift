@@ -110,6 +110,24 @@ final class QuickRefineCapturePanel {
     }
 
     private func handleKey(event: NSEvent) -> NSEvent? {
+        // Borderless non-activating panels don't sit on the responder chain
+        // that routes Edit-menu shortcuts to the focused text view, so ⌘V /
+        // ⌘C / ⌘X / ⌘A silently no-op. Invoke the action directly.
+        if event.modifierFlags.contains(.command),
+           !event.modifierFlags.contains(.option),
+           !event.modifierFlags.contains(.control) {
+            let chars = (event.charactersIgnoringModifiers ?? "").lowercased()
+            if let text = panel?.firstResponder as? NSText {
+                switch chars {
+                case "v": text.paste(nil);     return nil
+                case "c": text.copy(nil);      return nil
+                case "x": text.cut(nil);       return nil
+                case "a": text.selectAll(nil); return nil
+                default: break
+                }
+            }
+        }
+
         switch event.keyCode {
         case 36, 76: // Return / numpad Enter
             // Shift+Enter inserts newline — let the TextEditor handle it.
