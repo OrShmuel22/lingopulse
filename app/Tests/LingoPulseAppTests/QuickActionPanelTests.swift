@@ -22,8 +22,8 @@ import AppKit
     }
 
     @Test func rawValueInitForValidRange() {
-        #expect(QuickAction(rawValue: 1) == .preview)
-        #expect(QuickAction(rawValue: 2) == .refine)
+        #expect(QuickAction(rawValue: 1) == .refine)
+        #expect(QuickAction(rawValue: 2) == .preview)
         #expect(QuickAction(rawValue: 3) == .tone)
         #expect(QuickAction(rawValue: 4) == .quickRefine)
         #expect(QuickAction(rawValue: 5) == .undo)
@@ -40,7 +40,7 @@ import AppKit
     @Test func initialHighlightIsFirst() {
         let vm = QuickActionPanelViewModel()
         #expect(vm.highlightedIndex == 0)
-        #expect(vm.highlighted == .preview)
+        #expect(vm.highlighted == .refine)
     }
 
     @Test func moveDownWraps() {
@@ -58,7 +58,7 @@ import AppKit
     @Test func moveDownAdvances() {
         let vm = QuickActionPanelViewModel()
         vm.moveDown()
-        #expect(vm.highlighted == .refine)
+        #expect(vm.highlighted == .preview)
         vm.moveDown()
         #expect(vm.highlighted == .tone)
     }
