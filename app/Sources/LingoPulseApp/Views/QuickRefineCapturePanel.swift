@@ -54,6 +54,18 @@ final class QuickRefineCapturePanel {
         self.selfReference = self
         NSApp.activate(ignoringOtherApps: true)
         p.makeKeyAndOrderFront(nil)
+
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            guard let self else { return event }
+            return self.handleKey(event: event)
+        }
+        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            if event.keyCode == 53 { Task { @MainActor in self?.cancel() } }
+        }
+        let mouseMask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: mouseMask) { [weak self] _ in
+            Task { @MainActor in self?.cancel() }
+        }
     }
 
     func close() {
@@ -95,6 +107,23 @@ final class QuickRefineCapturePanel {
         if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
         if let m = globalKeyMonitor { NSEvent.removeMonitor(m); globalKeyMonitor = nil }
         if let m = globalMouseMonitor { NSEvent.removeMonitor(m); globalMouseMonitor = nil }
+    }
+
+    private func handleKey(event: NSEvent) -> NSEvent? {
+        switch event.keyCode {
+        case 36, 76: // Return / numpad Enter
+            // Shift+Enter inserts newline — let the TextEditor handle it.
+            if event.modifierFlags.contains(.shift) {
+                return event
+            }
+            fire()
+            return nil
+        case 53: // Escape
+            cancel()
+            return nil
+        default:
+            return event
+        }
     }
 }
 
