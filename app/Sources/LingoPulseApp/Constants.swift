@@ -26,4 +26,7 @@ enum Constants {
     enum Refine {
         static let minWordsForLiveTrigger: Int = 3
     }
+    enum AppNames {
+        static let quickRefine = "QuickRefine"
+    }
 }
