@@ -102,17 +102,31 @@ final class QuickRefineCommand {
         }
     }
 
+    // PreviewPanel.show returns when the panel is *shown*, not when it's
+    // dismissed. Wrap with a continuation that one of the outcome callbacks
+    // resumes, so the QuickRefine loop actually waits for the user to act.
     static func defaultShowPreview(
         _ result: FixerResult,
         _ onOutcome: @escaping (PreviewOutcome) -> Void
     ) async {
-        await PreviewPanel().show(
-            original: result.original,
-            refined: result.refined,
-            axWriteAvailable: false,
-            onAccept: { onOutcome(.accepted) },
-            onReject: { onOutcome(.rejected) },
-            onChangeTone: { onOutcome(.changeTone) }
-        )
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            Task { @MainActor in
+                var resolved = false
+                let resolve: (PreviewOutcome) -> Void = { outcome in
+                    if resolved { return }
+                    resolved = true
+                    onOutcome(outcome)
+                    cont.resume()
+                }
+                await PreviewPanel().show(
+                    original: result.original,
+                    refined: result.refined,
+                    axWriteAvailable: false,
+                    onAccept: { resolve(.accepted) },
+                    onReject: { resolve(.rejected) },
+                    onChangeTone: { resolve(.changeTone) }
+                )
+            }
+        }
     }
 }

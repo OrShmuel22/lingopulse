@@ -101,14 +101,22 @@ final class PreviewPanel {
         }
     }
 
-    private func fireAccept() { fire { self.onAccept?() } }
-    private func fireReject() { fire { self.onReject?() } }
+    // The handlers below capture each callback's CURRENT value before passing
+    // it to fire(), because fire() nils onAccept/onReject/onChangeTone as
+    // part of its teardown. If we wrote `fire { self.onAccept?() }` instead,
+    // the closure would read self.onAccept lazily inside the 120ms-delayed
+    // Task — and by then it would be nil, silently skipping the user's
+    // callback. That bug masked itself for axWriteAvailable=false flows
+    // (clipboard was auto-copied at show time) but broke the AX-write path
+    // and the Quick Refine .changeTone outcome.
+    private func fireAccept()     { let cb = onAccept;     fire { cb?() } }
+    private func fireReject()     { let cb = onReject;     fire { cb?() } }
+    private func fireChangeTone() { let cb = onChangeTone; fire { cb?() } }
     private func fireCopy() {
         // C is a non-destructive exit — copy refined, dismiss, leave ring entry.
         ClipboardService.copy(refinedText)
         fire { /* neither accept nor reject */ }
     }
-    private func fireChangeTone() { fire { self.onChangeTone?() } }
 
     private func fire(_ callback: @escaping () -> Void) {
         if hasFiredCallback { return }
