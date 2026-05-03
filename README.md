@@ -3,7 +3,7 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/swift-5.9-orange)](https://swift.org)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-152%20passing-brightgreen)](#tests)
+[![Tests](https://img.shields.io/badge/tests-177%20passing-brightgreen)](#tests)
 
 Local, private English refinement for macOS. A menu-bar app that polishes the text you've selected (or the field you're typing in) using a small language model running entirely on your machine. No cloud, no telemetry, no keystroke logging off-device.
 
@@ -14,12 +14,11 @@ Powered by [Ollama](https://ollama.com) on Apple Silicon.
 ## Highlights
 
 - **Single keystroke refine** — Right ⌘ refines the current selection (or whole field).
-- **Quick action menu** — Double-tap ⇧ for Refine · Preview · Tone · Undo · Find a Word · Capture Style. Number keys (1–9) pick instantly; Esc dismisses.
+- **Quick action menu** — Double-tap ⇧ for Refine · Preview · Tone · Quick Refine · Undo. Number keys 1–5 pick instantly; Esc dismisses.
+- **Quick Refine scratchpad** — A typed-input panel for apps that don't expose Accessibility text (Claude Code, iTerm, Cursor's terminal). Type → review the diff → ⌘V the refined text.
 - **Live Mode (opt-in)** — Inline ghost-overlay suggestion after you pause typing. Apply with Enter, dismiss with Esc.
 - **Terminal support** — `lp-refine` shell widget refines your zsh/bash buffer in place (Ctrl+G).
 - **Tone presets** — Casual, Neutral, Professional, Technical, Grammar-only. All overrideable.
-- **Hebrew + English dictionary** — Word lookup with definitions and example sentences.
-- **Capture style** — Train the refiner on samples of your own writing.
 - **Audit trail** — Every refinement is recorded locally with model, tone, duration, and char counts.
 
 ---
@@ -67,7 +66,7 @@ That's it. No Python, no daemons, no LaunchAgents.
 | Trigger | Action |
 |---------|--------|
 | **Right ⌘** (single tap) | Refine. Selection if any; otherwise the whole focused field. |
-| **Double-tap ⇧** | Quick action menu (1–6 to pick, Esc to dismiss). |
+| **Double-tap ⇧** | Quick action menu (1–5 to pick, Esc to dismiss). |
 | **Ctrl+G** in zsh/bash | Refine the current command line in place (after installing the shell widget). |
 
 Single key (Right ⌘ / Right ⌥ / Fn) and double-tap modifier (⌘ / ⌥ / ⇧) are configurable in **Settings → General → Triggers**.
@@ -88,6 +87,21 @@ iTerm/Terminal/Cursor's terminal pane don't expose Accessibility text. Use the s
 4. Type a sentence at the prompt and press **Ctrl+G** — the line is replaced in place.
 
 Bound to Ctrl+G by default. Re-bind by editing the `bindkey` line.
+
+---
+
+## Quick Refine (typed scratchpad)
+
+For apps where the shell widget doesn't fit — Claude Code's terminal pane, web-app prompts, anywhere you want to dictate a sentence and paste it back — use **Quick Refine**:
+
+1. Double-tap ⇧ → press **4** (or pick "Quick Refine").
+2. The capture panel opens, focused. Type or paste your text. Enter submits; Shift+Enter inserts a newline; Esc cancels.
+3. The refined text shows in the diff preview. The clipboard is updated automatically.
+4. Press **Esc** to dismiss, then ⌘V in your app.
+
+From the preview, press **T** to re-refine with a different tone (Casual, Neutral, Professional, Technical, Grammar-only). Default is Grammar-only.
+
+History rows for this flow are tagged `"app": "QuickRefine"` so they're filterable in `~/.config/lingopulse/history.jsonl`.
 
 ---
 
@@ -116,7 +130,6 @@ Settings → Advanced → enable **Live Mode**. While typing in any AX-aware tex
 
 User data lives at:
 - `~/.config/lingopulse/history.jsonl` — every refinement (audit log)
-- `~/.config/lingopulse/style_examples.jsonl` — captured style examples
 - `~/.cache/lingopulse/ring.json` — last N refines for undo
 
 Per-user overrides set via Settings (model, prompts, tones) live in `NSUserDefaults` under the `lp.*` keys.
@@ -140,8 +153,6 @@ app/Sources/LingoPulseApp/
 │   ├── AccessibilityService   AX read/write + clipboard fallback
 │   ├── SelectionService       Synthesized ⌘C / ⌘V via CGEvent
 │   ├── ClipboardService       Pasteboard snapshot/restore
-│   ├── Dictionary             JSON-schema dictionary lookup
-│   ├── StyleExamplesStore     Saved writing samples
 │   ├── LiveTextMonitor        AXObserver-driven Live Mode
 │   ├── KeepaliveOrchestrator  Periodic Ollama warm-up
 │   ├── HealthMonitor          AX + daemon reachability poll
@@ -151,9 +162,9 @@ app/Sources/LingoPulseApp/
 │   ├── Alerts / Notifications User-visible feedback
 │   ├── SpellCheck             NSSpellChecker pre-pass
 │   └── ToneOverrides          User tone description overrides
-├── Commands/                  Refine, Undo, Preview, Tone, Dictionary, CaptureStyle, Live
-├── Views/                     QuickActionPanel, PreviewPanel, TonePickerPanel,
-│                              DictionaryPanel, UndoFallbackPanel, GhostOverlayWindow,
+├── Commands/                  Preview, Tone, QuickRefine, Undo
+├── Views/                     QuickActionPanel, QuickRefineCapturePanel, PreviewPanel,
+│                              TonePickerPanel, UndoFallbackPanel, GhostOverlayWindow,
 │                              ModelsPromptsTab
 ├── AppDelegate                Bootstrap and pref observers
 ├── AppCoordinator             Command dispatch and refine state
@@ -196,26 +207,25 @@ cd app
 swift test
 ```
 
-152 tests across 30+ suites covering: trigger state machine, AX read/write, Ollama client (with mocked URL session), prompt building, ring buffer persistence, dictionary JSON-schema parsing, shell-bridge auth, Live Mode debounce, health monitor, spell-check round-trip, and protection/redaction.
+177 tests across 30+ suites covering: trigger state machine, AX read/write, Ollama client (with mocked URL session), prompt building, ring buffer persistence, shell-bridge auth, Live Mode debounce, health monitor, spell-check round-trip, protection/redaction, and Quick Refine command flow (capture cancel, tone re-refine, ring rollback).
 
 ---
 
 ## Configuration matrix (models)
 
-| Model | Size | Tok/s on M4 Air | Hebrew | Notes |
-|-------|------|-----------------|--------|-------|
-| `gemma3:1b-it-qat` | ~800 MB | ~85 | partial | Default. Best latency. |
-| `gemma3:4b-it-qat` | ~2.5 GB | ~32 | good | Higher quality, slower. |
-| `qwen2.5:3b` | ~1.9 GB | ~40 | weak | Stronger English grammar. |
+| Model | Size | Tok/s on M4 Air | Notes |
+|-------|------|-----------------|-------|
+| `gemma3:1b-it-qat` | ~800 MB | ~85 | Default. Best latency. |
+| `gemma3:4b-it-qat` | ~2.5 GB | ~32 | Higher quality, slower. |
+| `qwen2.5:3b` | ~1.9 GB | ~40 | Stronger English grammar. |
 
-Pick under **Settings → Models & Prompts → Refine model**. Different models for Refine vs. Dictionary cost a ~500 ms reload per alternation; the UI warns you.
+Pick under **Settings → Models & Prompts → Refine model**.
 
 ---
 
 ## Honest limits
 
-- Hebrew dictionary quality scales with the chosen model — Gemma 3 1B is fast but imperfect on rare words.
-- Right ⌘ and Live Mode don't fire in apps that don't expose AX text (iTerm, Terminal, Cursor's terminal pane). Use the `lp-refine` shell widget there.
+- Right ⌘ and Live Mode don't fire in apps that don't expose AX text (iTerm, Terminal, Cursor's terminal pane, Claude Code). Use the `lp-refine` shell widget for zsh/bash, or **Quick Refine** for everything else.
 - Apple Intelligence Writing Tools is **not** used (no Hebrew support as of macOS 26.1).
 - The shell bridge requires writing to your shell rc file. The installer is idempotent and prepends a comment marker, but review the diff if you keep your rc under version control.
 
