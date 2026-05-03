@@ -101,13 +101,13 @@ Settings → Advanced → Live Mode. As you type in any AX-aware field, LingoPul
 
 Pick under **Settings → Models & Prompts → Refine model**.
 
-| Model | Size | Tok/s on M4 Air | Notes |
-|-------|------|-----------------|-------|
-| `gemma3:1b-it-qat` | ~800 MB | ~85 | Default. Best latency. |
-| `gemma3:4b-it-qat` | ~2.5 GB | ~32 | Higher quality, slower. |
-| `qwen2.5:3b` | ~1.9 GB | ~40 | Stronger English grammar. |
+| Tier | Model | Size | Notes |
+|------|-------|------|-------|
+| Light | `gemma3:1b-it-qat` | ~1 GB | Default. Lowest latency on Apple Silicon. |
+| Medium | `gemma4:e2b` | ~7 GB | Better quality, still fast on M-series. |
+| Strongest | `gemma4:e4b` | ~10 GB | Highest quality. Slower; warm-up via Keepalive recommended. |
 
-Any chat-tuned model Ollama supports works in principle.
+Any chat-tuned model Ollama supports works in principle. Pull with `ollama pull <tag>`.
 
 ---
 
