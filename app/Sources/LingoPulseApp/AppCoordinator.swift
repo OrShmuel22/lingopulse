@@ -100,13 +100,4 @@ final class AppCoordinator {
         let cmd = ToneCommand(fixer: fixer, accessibility: accessibility)
         Task { @MainActor in await cmd.execute() }
     }
-    func lookupWord() {
-        let cmd = DictionaryCommand(ollama: fixer.ollama, config: fixer.config, accessibility: accessibility)
-        Task { @MainActor in await cmd.execute() }
-    }
-    func captureStyleExample() {
-        let store = StyleExamplesStore()
-        let cmd = CaptureStyleCommand(store: store, accessibility: accessibility)
-        Task { @MainActor in await cmd.execute() }
-    }
 }

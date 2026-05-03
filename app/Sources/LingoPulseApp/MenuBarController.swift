@@ -39,9 +39,6 @@ final class MenuBarController: NSObject {
         prefs.$fixerModel.dropFirst().sink { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }.store(in: &prefsCancellables)
-        prefs.$dictionaryModel.dropFirst().sink { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
-        }.store(in: &prefsCancellables)
     }
 
     func setRefining(_ on: Bool) {
@@ -58,8 +55,7 @@ final class MenuBarController: NSObject {
     private func activeModelTooltip() -> String {
         let prefs = Preferences.shared
         let fixer = prefs.fixerModel ?? "config default"
-        let dict = prefs.dictionaryModel ?? "config default"
-        return "LingoPulse\nRefine: \(fixer)\nDictionary: \(dict)"
+        return "LingoPulse\nRefine: \(fixer)"
     }
 
     private func refresh() {

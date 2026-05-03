@@ -13,10 +13,6 @@ final class AppConfig {
             "timeout_seconds": 15,
             "max_retries": 2
         ],
-        "dictionary": [
-            "model": "gemma3:1b-it-qat",
-            "timeout_seconds": 15
-        ],
         "keepalive": [
             "enabled": true,
             "ollama_keep_alive": "30m",

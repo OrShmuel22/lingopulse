@@ -51,32 +51,6 @@ private struct ModelsSectionView: View {
                 .help("Refresh model list from Ollama")
             }
 
-            Picker("Dictionary model", selection: Binding(
-                get: { prefs.dictionaryModel ?? "" },
-                set: { prefs.dictionaryModel = $0.isEmpty ? nil : $0 }
-            )) {
-                Text("(Use config default)").tag("")
-                ForEach(models, id: \.name) { m in
-                    Text(m.name).tag(m.name)
-                }
-            }
-
-            // Different models per command force Ollama to swap weights on every
-            // alternation between Refine and Dictionary (~500ms reload). Warn so
-            // the user can pick one shared model unless they have a strong reason.
-            if let f = prefs.fixerModel, let d = prefs.dictionaryModel, !f.isEmpty, !d.isEmpty, f != d {
-                HStack(alignment: .top) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
-                    Text("Refine and Dictionary use different models. Ollama will swap weights when you alternate between them, adding ~500ms latency per switch. Pick the same model for both unless you need different ones.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Toggle("Strict JSON schema for Dictionary", isOn: $prefs.dictionaryStrictSchema)
-                .help("On: grammar-constrained sampling guarantees valid JSON but slows generation 15–30%. Off: tolerant parser, faster, rare parse failures.")
-
             if let err = loadError {
                 HStack {
                     Image(systemName: "exclamationmark.triangle")
