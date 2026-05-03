@@ -24,11 +24,14 @@ final class TonePickerPanel {
     // no keys would be handled. Hold a self reference until dismissal.
     private var selfReference: TonePickerPanel?
 
-    func show(tones: [String], preselected: String, onPick: @escaping (String) -> Void) async {
+    func show(tones: [String], preselected: String, onCancel: (() -> Void)? = nil, onPick: @escaping (String) -> Void) async {
         if panel != nil { return }
         self.tones = tones
         self.onPick = onPick
-        self.onCancel = { [weak self] in self?.close() }
+        self.onCancel = { [weak self] in
+            onCancel?()
+            self?.close()
+        }
         self.previousApp = NSWorkspace.shared.frontmostApplication
 
         let view = TonePickerView(
@@ -88,7 +91,7 @@ final class TonePickerPanel {
         let prev = previousApp
         previousApp = nil
         prev?.activate()
-        _ = cancel
+        cancel?()
         selfReference = nil
     }
 
