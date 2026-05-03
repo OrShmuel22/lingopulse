@@ -8,9 +8,9 @@
 [![Tests](https://img.shields.io/badge/tests-177%20passing-brightgreen)](#tests)
 
 <p align="center">
-  <img src="docs/assets/quick-refine-preview.png" width="640" alt="Side-by-side diff: 'Help me fix my englsih' refined to 'Help me fix my English.' with a banner saying the refined text is on the clipboard">
+  <img src="docs/assets/demo.gif" width="640" alt="Animated walkthrough of Quick Refine: the action menu, the capture panel, and the side-by-side diff preview">
   <br>
-  <em>Type. Hit Enter. See the diff. ⌘V anywhere.</em>
+  <em>Pick from the menu, type, see the diff. ⌘V anywhere.</em>
 </p>
 
 LingoPulse refines your English in any macOS text field using a small language model running locally on your Mac. Right ⌘ to clean up what you've selected. ⇧⇧ → 4 to type a fresh sentence into a scratchpad. The refined output lands on your clipboard for pasting anywhere — including terminals like Claude Code, where Apple Writing Tools, Grammarly, and friends don't reach.
@@ -182,21 +182,6 @@ swift test
 ```
 
 177 tests across 30+ suites covering: trigger state machine, AX read/write, Ollama client (mocked URL session), prompt building, ring buffer persistence, shell-bridge auth, Live Mode debounce, health monitor, spell-check round-trip, protection/redaction, and Quick Refine command flow.
-
-</details>
-
-<details>
-<summary><b>Migration from v1 (Python + Raycast)</b></summary>
-
-```bash
-launchctl bootout "gui/$(id -u)/com.lingopulse.warmup"    2>/dev/null
-launchctl bootout "gui/$(id -u)/com.lingopulse.keepalive" 2>/dev/null
-launchctl bootout "gui/$(id -u)/com.lingopulse.daemon"    2>/dev/null
-rm -f ~/Library/LaunchAgents/com.lingopulse.*.plist
-launchctl unsetenv OLLAMA_KEEP_ALIVE 2>/dev/null
-```
-
-Your `~/.config/lingopulse/` data carries over verbatim.
 
 </details>
 
