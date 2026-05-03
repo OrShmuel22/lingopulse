@@ -13,7 +13,7 @@
   <em>Pick from the menu, type, see the diff. ⌘V anywhere.</em>
 </p>
 
-LingoPulse refines your English in any macOS text field using a small language model running locally on your Mac. Right ⌘ to clean up what you've selected. ⇧⇧ → 4 to type a fresh sentence into a scratchpad. The refined output lands on your clipboard for pasting anywhere — including terminals like Claude Code, where Apple Writing Tools, Grammarly, and friends don't reach.
+LingoPulse refines your English in any macOS text field using a small language model running locally on your Mac. Right ⌘ to clean up what you've selected. ⇧⇧ → 1 to type a fresh sentence into a scratchpad. The refined output lands on your clipboard for pasting anywhere — including terminals like Claude Code, where Apple Writing Tools, Grammarly, and friends don't reach.
 
 ---
 
@@ -61,15 +61,15 @@ Select text in any AX-aware field (Mail, Notes, Slack, Safari, …). Tap **Right
 Double-tap **⇧** to bring up the menu. Press the digit to pick:
 
 <p align="center">
-  <img src="docs/assets/quick-action-menu.png" width="220" alt="Quick Action menu with five entries: Refine (1), Preview (2), Tone (3), Quick Refine (4) highlighted, Undo (5)">
+  <img src="docs/assets/quick-action-menu.png" width="220" alt="Quick Action menu with five entries: Quick Refine (1) highlighted, Refine (2), Preview (3), Tone (4), Undo (5)">
 </p>
 
 | Key | Action |
 |-----|--------|
-| **1 Refine** | Same as Right ⌘. |
-| **2 Preview** | Refine, but show a diff first. Apply with Enter; reject with Esc. |
-| **3 Tone** | Pick a tone (Casual, Neutral, Professional, Technical, Grammar-only) and refine. |
-| **4 Quick Refine** | Open a typed-input scratchpad. See below. |
+| **1 Quick Refine** | Open a typed-input scratchpad. See below. |
+| **2 Refine** | Same as Right ⌘. |
+| **3 Preview** | Refine, but show a diff first. Apply with Enter; reject with Esc. |
+| **4 Tone** | Pick a tone (Casual, Neutral, Professional, Technical, Grammar-only) and refine. |
 | **5 Undo** | Roll back the last refinement. |
 
 ### Quick Refine — for apps that block Accessibility text
@@ -80,7 +80,7 @@ Claude Code's terminal pane, iTerm, Cursor's terminal, web prompts — anywhere 
   <img src="docs/assets/quick-refine-capture.png" width="520" alt="Capture panel — a multi-line text editor with footer showing Enter=Refine, Shift+Enter=Newline, Esc=Cancel">
 </p>
 
-1. **⇧⇧ → 4**. Capture panel opens, focused.
+1. **⇧⇧ → 1**. Capture panel opens, focused.
 2. Type or paste. **Enter** submits; **Shift+Enter** inserts a newline.
 3. The diff preview opens; the refined text is already on your clipboard.
 4. **Esc** to dismiss, then **⌘V** in your app.

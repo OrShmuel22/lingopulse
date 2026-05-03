@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum QuickAction: Int, CaseIterable, Identifiable {
-    case refine = 1, preview, tone, quickRefine, undo
+    case quickRefine = 1, refine, preview, tone, undo
     var id: Int { rawValue }
 
     var label: String {
