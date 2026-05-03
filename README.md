@@ -1,135 +1,136 @@
 # LingoPulse
 
+**A local, private writing refiner for macOS — one keystroke, any app, including terminals.**
+
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/swift-5.9-orange)](https://swift.org)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-177%20passing-brightgreen)](#tests)
 
-Local, private English refinement for macOS. A menu-bar app that polishes the text you've selected (or the field you're typing in) using a small language model running entirely on your machine. No cloud, no telemetry, no keystroke logging off-device.
-
-Powered by [Ollama](https://ollama.com) on Apple Silicon.
-
 <p align="center">
-  <img src="docs/assets/quick-refine-preview.png" width="640" alt="Preview panel showing original text 'Help me fix my englsih' next to refined 'Help me fix my English.' with diff highlights and keyboard shortcuts">
+  <img src="docs/assets/quick-refine-preview.png" width="640" alt="Side-by-side diff: 'Help me fix my englsih' refined to 'Help me fix my English.' with a banner saying the refined text is on the clipboard">
   <br>
-  <em>Quick Refine — type a sentence, see the diff, paste anywhere with ⌘V.</em>
+  <em>Type. Hit Enter. See the diff. ⌘V anywhere.</em>
 </p>
 
----
-
-## Highlights
-
-- **Single keystroke refine** — Right ⌘ refines the current selection (or whole field).
-- **Quick action menu** — Double-tap ⇧ for Refine · Preview · Tone · Quick Refine · Undo. Number keys 1–5 pick instantly; Esc dismisses.
-- **Quick Refine scratchpad** — A typed-input panel for apps that don't expose Accessibility text (Claude Code, iTerm, Cursor's terminal). Type → review the diff → ⌘V the refined text.
-- **Live Mode (opt-in)** — Inline ghost-overlay suggestion after you pause typing. Apply with Enter, dismiss with Esc.
-- **Terminal support** — `lp-refine` shell widget refines your zsh/bash buffer in place (Ctrl+G).
-- **Tone presets** — Casual, Neutral, Professional, Technical, Grammar-only. All overrideable.
-- **Audit trail** — Every refinement is recorded locally with model, tone, duration, and char counts.
+LingoPulse refines your English in any macOS text field using a small language model running locally on your Mac. Right ⌘ to clean up what you've selected. ⇧⇧ → 4 to type a fresh sentence into a scratchpad. The refined output lands on your clipboard for pasting anywhere — including terminals like Claude Code, where Apple Writing Tools, Grammarly, and friends don't reach.
 
 ---
 
-## Privacy & security
+## Why LingoPulse?
 
-- **No network egress.** All inference runs against `127.0.0.1:11434` (Ollama). No analytics, no crash reports, no model telemetry.
-- **No keystroke buffer.** Refines fire only on your trigger. Live Mode reads the focused field's value via Accessibility; nothing is logged off-device.
-- **Shell bridge is loopback-only.** When enabled, the local HTTP server binds `127.0.0.1`, requires a generated bearer token (`~/.config/lingopulse/shell-token`, mode 0600), and rejects non-loopback connections.
-- **Excluded apps by default.** 1Password and terminals never trigger Live Mode.
-
----
-
-## Requirements
-
-- macOS 14 (Sonoma) or later
-- Apple Silicon (M-series)
-- [Ollama](https://ollama.com)
+- **Private by design.** Inference runs on `127.0.0.1` against your local [Ollama](https://ollama.com) instance. No network egress. No telemetry. No API keys to manage.
+- **Works in terminals.** Apple Writing Tools and most refinement tools rely on Accessibility text — which terminals don't expose. Quick Refine bypasses that with a typed-input scratchpad.
+- **Single keystroke.** Right ⌘ refines the selection (or the whole focused field) in place. Sub-second on Apple Silicon. No popups to dismiss, no menus to hunt.
+- **Free.** Open-weight models (Gemma 3, Qwen 2.5). No subscriptions, no rate limits.
 
 ---
 
-## Install
+## Quick start
 
 ```bash
-# 1. Install Ollama (one-time)
-brew install ollama
-brew services start ollama
+# 1. Install Ollama and pull a model
+brew install ollama && brew services start ollama
+ollama pull gemma3:1b-it-qat        # ~800 MB
 
-# 2. Pull a model (one-time)
-ollama pull gemma3:1b-it-qat        # ~800 MB, fastest
-# or:  ollama pull gemma3:4b-it-qat  # ~2.5 GB, higher quality
+# 2. Build LingoPulse
+git clone https://github.com/OrShmuel22/lingopulse.git
+cd lingopulse/app
+swift build --configuration release
+./scripts/build-bundle.sh release
 
-# 3. Open LingoPulse.app
+# 3. Install and run
+cp -R LingoPulse.app /Applications/
 open /Applications/LingoPulse.app
-
-# 4. Grant Accessibility permission when prompted
 ```
 
-That's it. No Python, no daemons, no LaunchAgents.
+Grant Accessibility permission when prompted. That's it — no Python, no daemons, no LaunchAgents.
+
+**Requires** macOS 14 (Sonoma) or later, Apple Silicon, and [Ollama](https://ollama.com).
 
 ---
 
-## Triggers
+## Using it
 
-| Trigger | Action |
-|---------|--------|
-| **Right ⌘** (single tap) | Refine. Selection if any; otherwise the whole focused field. |
-| **Double-tap ⇧** | Quick action menu (1–5 to pick, Esc to dismiss). |
-| **Ctrl+G** in zsh/bash | Refine the current command line in place (after installing the shell widget). |
+### Right ⌘ — refine in place
 
-Single key (Right ⌘ / Right ⌥ / Fn) and double-tap modifier (⌘ / ⌥ / ⇧) are configurable in **Settings → General → Triggers**.
+Select text in any AX-aware field (Mail, Notes, Slack, Safari, …). Tap **Right ⌘**. The selection is replaced with the refined version. With nothing selected, the whole field is refined.
+
+### ⇧⇧ — Quick Action menu
+
+Double-tap **⇧** to bring up the menu. Press the digit to pick:
 
 <p align="center">
-  <img src="docs/assets/quick-action-menu.png" width="220" alt="Quick Action menu showing five entries: Refine (1), Preview (2), Tone (3), Quick Refine (4) highlighted, Undo (5)">
+  <img src="docs/assets/quick-action-menu.png" width="220" alt="Quick Action menu with five entries: Refine (1), Preview (2), Tone (3), Quick Refine (4) highlighted, Undo (5)">
 </p>
 
----
+| Key | Action |
+|-----|--------|
+| **1 Refine** | Same as Right ⌘. |
+| **2 Preview** | Refine, but show a diff first. Apply with Enter; reject with Esc. |
+| **3 Tone** | Pick a tone (Casual, Neutral, Professional, Technical, Grammar-only) and refine. |
+| **4 Quick Refine** | Open a typed-input scratchpad. See below. |
+| **5 Undo** | Roll back the last refinement. |
 
-## Terminal integration (zsh / bash)
+### Quick Refine — for apps that block Accessibility text
 
-iTerm/Terminal/Cursor's terminal pane don't expose Accessibility text. Use the shell widget instead:
-
-1. Settings → Advanced → enable **Shell integration**.
-2. Click **Install for zsh** (or bash). LingoPulse appends two lines to `~/.zshrc`:
-   ```
-   source "${HOME}/.config/lingopulse/lp-refine.zsh"
-   bindkey '^G' lp-refine
-   ```
-3. Open a new terminal (or `source ~/.zshrc`).
-4. Type a sentence at the prompt and press **Ctrl+G** — the line is replaced in place.
-
-Bound to Ctrl+G by default. Re-bind by editing the `bindkey` line.
-
----
-
-## Quick Refine (typed scratchpad)
-
-For apps where the shell widget doesn't fit — Claude Code's terminal pane, web-app prompts, anywhere you want to dictate a sentence and paste it back — use **Quick Refine**:
-
-1. Double-tap ⇧ → press **4** (or pick "Quick Refine").
-2. The capture panel opens, focused. Type or paste your text. Enter submits; Shift+Enter inserts a newline; Esc cancels.
-3. The refined text shows in the diff preview. The clipboard is updated automatically.
-4. Press **Esc** to dismiss, then ⌘V in your app.
+Claude Code's terminal pane, iTerm, Cursor's terminal, web prompts — anywhere AX text isn't exposed.
 
 <p align="center">
-  <img src="docs/assets/quick-refine-capture.png" width="520" alt="Quick Refine capture panel — a multi-line text editor with footer hints for Refine, Newline, and Cancel">
+  <img src="docs/assets/quick-refine-capture.png" width="520" alt="Capture panel — a multi-line text editor with footer showing Enter=Refine, Shift+Enter=Newline, Esc=Cancel">
 </p>
 
-From the preview, press **T** to re-refine with a different tone (Casual, Neutral, Professional, Technical, Grammar-only). Default is Grammar-only.
+1. **⇧⇧ → 4**. Capture panel opens, focused.
+2. Type or paste. **Enter** submits; **Shift+Enter** inserts a newline.
+3. The diff preview opens; the refined text is already on your clipboard.
+4. **Esc** to dismiss, then **⌘V** in your app.
 
-History rows for this flow are tagged `"app": "QuickRefine"` so they're filterable in `~/.config/lingopulse/history.jsonl`.
+Default tone is Grammar-only (minimum-edit). Press **T** from the preview to re-refine with a different tone.
+
+### Ctrl+G — refine your shell command
+
+For zsh and bash, install the shell widget under Settings → Advanced → Shell integration. Press **Ctrl+G** mid-line — it's replaced with the refined version in place.
+
+### Live Mode (opt-in)
+
+Settings → Advanced → Live Mode. As you type in any AX-aware field, LingoPulse refines after a configurable pause and offers an inline ghost overlay. **Enter** applies, **Esc** dismisses. Disabled in 1Password and terminals by default.
 
 ---
 
-## Live Mode (optional)
+## Models
 
-Settings → Advanced → enable **Live Mode**. While typing in any AX-aware text field, LingoPulse refines after you pause typing for the configured debounce window (default 1.5 s) and offers an inline overlay.
+Pick under **Settings → Models & Prompts → Refine model**.
 
-- Apply with **Enter**, dismiss with **Esc**.
-- Per-app excluded list under Settings → Apps.
-- Disabled in 1Password and terminal apps by default.
+| Model | Size | Tok/s on M4 Air | Notes |
+|-------|------|-----------------|-------|
+| `gemma3:1b-it-qat` | ~800 MB | ~85 | Default. Best latency. |
+| `gemma3:4b-it-qat` | ~2.5 GB | ~32 | Higher quality, slower. |
+| `qwen2.5:3b` | ~1.9 GB | ~40 | Stronger English grammar. |
+
+Any chat-tuned model Ollama supports works in principle.
 
 ---
 
-## Configuration
+## Privacy
+
+- **No network egress.** All inference is HTTP to `127.0.0.1:11434` (Ollama). No analytics. No crash reports. No telemetry.
+- **No keystroke buffer.** Refines run on your trigger. Live Mode reads the focused field's text via Accessibility on demand; nothing is logged off-device.
+- **Shell bridge is loopback-only.** When enabled, the local HTTP server binds `127.0.0.1`, requires a generated bearer token (`~/.config/lingopulse/shell-token`, mode 0600), and rejects non-loopback connections.
+
+User data stays under `~/.config/lingopulse/` (settings, audit log) and `~/.cache/lingopulse/` (undo ring).
+
+---
+
+## Honest limits
+
+- Right ⌘ and Live Mode don't fire in apps that don't expose AX text — use Quick Refine (universal) or the `lp-refine` shell widget (zsh/bash) instead.
+- Apple Intelligence Writing Tools is **not** used (no Hebrew support as of macOS 26.1, and it doesn't reach terminals either).
+- The shell-widget installer writes two lines to your shell rc file. Idempotent, clearly marked, but review the diff if you keep your rc under version control.
+
+---
+
+<details>
+<summary><b>Configuration</b></summary>
 
 `~/.config/lingopulse/config.json` is the source of truth. Defaults are sensible — only override what you want to change.
 
@@ -142,110 +143,50 @@ Settings → Advanced → enable **Live Mode**. While typing in any AX-aware tex
 | `ring_buffer.size` | Undo history depth (default 5) |
 | `alerts.suppress_interval_seconds` | Modal-alert dedupe window (default 300) |
 
-User data lives at:
-- `~/.config/lingopulse/history.jsonl` — every refinement (audit log)
-- `~/.cache/lingopulse/ring.json` — last N refines for undo
+Per-user overrides set via Settings (model, prompts, tones) live in `NSUserDefaults` under `lp.*` keys.
 
-Per-user overrides set via Settings (model, prompts, tones) live in `NSUserDefaults` under the `lp.*` keys.
+</details>
 
----
+<details>
+<summary><b>Architecture</b></summary>
 
-## Architecture
-
-Single Swift menu-bar app. In-process: Ollama HTTP client, prompt builder, ring buffer, history store, AX selection bridge, Live Mode AX observer. No daemon. No Python. No Raycast.
+Single Swift menu-bar app. In-process: Ollama HTTP client, prompt builder, ring buffer, history store, AX selection bridge, Live Mode AX observer. No daemon, no Python, no Raycast.
 
 ```
 app/Sources/LingoPulseApp/
-├── Services/
-│   ├── OllamaService          HTTP client (generate / generateStream / listModels) with retry+backoff
-│   ├── Fixer                  Pre-correct → prompt build → Ollama call → record history
-│   ├── AppConfig              Layered JSON config loader
-│   ├── Prompts                Templates and tone descriptions
-│   ├── Protection             Token/URL redaction round-trip
-│   ├── HistoryStore           JSONL audit log
-│   ├── RingBuffer             Bounded undo history
-│   ├── AccessibilityService   AX read/write + clipboard fallback
-│   ├── SelectionService       Synthesized ⌘C / ⌘V via CGEvent
-│   ├── ClipboardService       Pasteboard snapshot/restore
-│   ├── LiveTextMonitor        AXObserver-driven Live Mode
-│   ├── KeepaliveOrchestrator  Periodic Ollama warm-up
-│   ├── HealthMonitor          AX + daemon reachability poll
-│   ├── ShellBridgeServer      Loopback HTTP /refine for shell widgets
-│   ├── ShellInstaller         zsh/bash widget install
-│   ├── Debouncer              Reusable Task-based debounce
-│   ├── Alerts / Notifications User-visible feedback
-│   ├── SpellCheck             NSSpellChecker pre-pass
-│   └── ToneOverrides          User tone description overrides
-├── Commands/                  Preview, Tone, QuickRefine, Undo
-├── Views/                     QuickActionPanel, QuickRefineCapturePanel, PreviewPanel,
-│                              TonePickerPanel, UndoFallbackPanel, GhostOverlayWindow,
-│                              ModelsPromptsTab
-├── AppDelegate                Bootstrap and pref observers
-├── AppCoordinator             Command dispatch and refine state
-├── TriggerMonitor             Single-key + double-tap state machine via CGEventTap
-├── MenuBarController          NSStatusItem + menu and tooltip
-├── SettingsWindow             4-tab settings UI (General, Models & Prompts, Apps, Advanced)
-├── OnboardingWindow           First-run flow
-└── Preferences                @Published-backed UserDefaults bridge
+├── Services/      Ollama HTTP, Fixer, AppConfig, Prompts, Protection,
+│                  HistoryStore, RingBuffer, AccessibilityService,
+│                  SelectionService, ClipboardService, LiveTextMonitor,
+│                  KeepaliveOrchestrator, HealthMonitor, ShellBridgeServer,
+│                  ShellInstaller, Debouncer, SpellCheck, ToneOverrides,
+│                  TriggerMonitor
+├── Commands/      PreviewCommand, ToneCommand, QuickRefineCommand, UndoCommand
+├── Views/         QuickActionPanel, QuickRefineCapturePanel, PreviewPanel,
+│                  TonePickerPanel, UndoFallbackPanel, GhostOverlayWindow,
+│                  ModelsPromptsTab
+├── AppDelegate, AppCoordinator, MenuBarController
+├── SettingsWindow, OnboardingWindow
+└── Preferences (UserDefaults bridge)
 ```
 
-```
-docs/
-├── perf-tuning.md             Latency tuning notes
-├── ui-research-2026.md        UX iteration findings
-└── product/                   Decision records
-benchmarks/                    Model benchmarking harness
-scripts/                       Dev / release helpers
-app/scripts/                   build-bundle.sh, build-dmg.sh, lp-refine.{zsh,bash}
-```
+Targets `swift-tools-version: 5.9`, macOS 14+. No external Swift dependencies — only AppKit, SwiftUI, ApplicationServices, ServiceManagement.
 
----
+</details>
 
-## Build from source
-
-```bash
-cd app
-swift build --configuration release
-./scripts/build-bundle.sh release    # produces app/LingoPulse.app
-./scripts/build-dmg.sh   release     # produces app/LingoPulse-<version>.dmg
-```
-
-Targets `swift-tools-version: 5.9`, `macOS 14+`. No external Swift dependencies; the project uses only AppKit, SwiftUI, ApplicationServices, and ServiceManagement.
-
----
-
-## Tests
+<details>
+<summary><b>Tests</b></summary>
 
 ```bash
 cd app
 swift test
 ```
 
-177 tests across 30+ suites covering: trigger state machine, AX read/write, Ollama client (with mocked URL session), prompt building, ring buffer persistence, shell-bridge auth, Live Mode debounce, health monitor, spell-check round-trip, protection/redaction, and Quick Refine command flow (capture cancel, tone re-refine, ring rollback).
+177 tests across 30+ suites covering: trigger state machine, AX read/write, Ollama client (mocked URL session), prompt building, ring buffer persistence, shell-bridge auth, Live Mode debounce, health monitor, spell-check round-trip, protection/redaction, and Quick Refine command flow.
 
----
+</details>
 
-## Configuration matrix (models)
-
-| Model | Size | Tok/s on M4 Air | Notes |
-|-------|------|-----------------|-------|
-| `gemma3:1b-it-qat` | ~800 MB | ~85 | Default. Best latency. |
-| `gemma3:4b-it-qat` | ~2.5 GB | ~32 | Higher quality, slower. |
-| `qwen2.5:3b` | ~1.9 GB | ~40 | Stronger English grammar. |
-
-Pick under **Settings → Models & Prompts → Refine model**.
-
----
-
-## Honest limits
-
-- Right ⌘ and Live Mode don't fire in apps that don't expose AX text (iTerm, Terminal, Cursor's terminal pane, Claude Code). Use the `lp-refine` shell widget for zsh/bash, or **Quick Refine** for everything else.
-- Apple Intelligence Writing Tools is **not** used (no Hebrew support as of macOS 26.1).
-- The shell bridge requires writing to your shell rc file. The installer is idempotent and prepends a comment marker, but review the diff if you keep your rc under version control.
-
----
-
-## Migration from v1 (Python + Raycast)
+<details>
+<summary><b>Migration from v1 (Python + Raycast)</b></summary>
 
 ```bash
 launchctl bootout "gui/$(id -u)/com.lingopulse.warmup"    2>/dev/null
@@ -257,23 +198,24 @@ launchctl unsetenv OLLAMA_KEEP_ALIVE 2>/dev/null
 
 Your `~/.config/lingopulse/` data carries over verbatim.
 
----
+</details>
 
-## Uninstall
+<details>
+<summary><b>Uninstall</b></summary>
 
 ```bash
 rm -rf /Applications/LingoPulse.app
 rm -rf ~/.config/lingopulse ~/.cache/lingopulse
 ```
 
----
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+</details>
 
 ---
 
 ## Contributing
 
 Issues and PRs welcome. Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`) and `swift test` passing are required for merge.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
