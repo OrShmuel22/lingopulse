@@ -146,7 +146,9 @@ final class PreviewPanel {
     }
 
     private func handleKey(event: NSEvent) -> NSEvent? {
-        let chars = (event.charactersIgnoringModifiers ?? "").lowercased()
+        // Match on keyCode (layout-independent) rather than characters —
+        // a Hebrew keyboard layout returns "ב" for the C key, "ד" for D,
+        // "א" for T, which would never match if we tested characters.
         switch event.keyCode {
         case 36, 76: // Return / numpad Enter
             fireAccept()
@@ -154,19 +156,15 @@ final class PreviewPanel {
         case 53: // Escape
             fireReject()
             return nil
-        default:
-            break
-        }
-        switch chars {
-        case "c":
+        case 8: // C
             fireCopy()
             return nil
-        case "d":
+        case 2: // D
             // Diff toggle is a SwiftUI @State inside the view; rebroadcast a
             // notification the view listens for.
             NotificationCenter.default.post(name: .lpPreviewToggleDiff, object: nil)
             return nil
-        case "t":
+        case 17: // T
             // Only intercept T when a change-tone callback is wired (Quick Refine).
             // Other callers (Right-⌘ refine, PreviewCommand) pass nil and T falls through.
             if onChangeTone != nil {
