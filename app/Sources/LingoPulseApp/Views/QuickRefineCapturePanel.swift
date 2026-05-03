@@ -137,6 +137,8 @@ private struct QuickRefineCaptureView: View {
     let onSubmit: () -> Void
     let onCancel: () -> Void
 
+    @FocusState private var editorFocused: Bool
+
     var body: some View {
         ZStack {
             VisualEffectBackground()
@@ -152,6 +154,7 @@ private struct QuickRefineCaptureView: View {
                         RoundedRectangle(cornerRadius: 6)
                             .fill(Color.secondary.opacity(0.10))
                     )
+                    .focused($editorFocused)
                 HStack(spacing: 12) {
                     ShortcutHint(key: "↩", label: "Refine")
                     ShortcutHint(key: "⇧↩", label: "Newline")
@@ -163,6 +166,12 @@ private struct QuickRefineCaptureView: View {
             .padding(14)
         }
         .frame(width: 520, height: 220)
+        .task {
+            // SwiftUI focus needs the panel to be key first; a brief tick lets
+            // makeKeyAndOrderFront settle before we set first responder.
+            try? await Task.sleep(for: .milliseconds(50))
+            editorFocused = true
+        }
     }
 }
 

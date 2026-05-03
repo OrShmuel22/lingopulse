@@ -2,9 +2,13 @@ import AppKit
 
 @MainActor
 final class QuickRefineCommand {
+    enum PreviewOutcome { case accepted, rejected, changeTone }
+
     typealias Capture = @MainActor () async -> String?
     typealias TonePick = @MainActor () async -> String?
-    typealias ShowPreview = @MainActor (FixerResult, @escaping () -> Void, @escaping () -> Void) async -> Void
+    typealias ShowPreview = @MainActor (FixerResult, @escaping (PreviewOutcome) -> Void) async -> Void
+
+    static let defaultTone = "Grammar-only"
 
     private let fixer: Fixer
     private let capture: Capture
@@ -33,35 +37,43 @@ final class QuickRefineCommand {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        guard let tone = await tonePick() else { return }
-
-        let result: FixerResult
-        do {
-            result = try await fixer.refine(
-                selection: trimmed,
-                app: Constants.AppNames.quickRefine,
-                toneOverride: tone
-            )
-        } catch FixerError.ollama(.busy) {
-            Log.info("ollama busy — try again in a moment")
-            return
-        } catch FixerError.ollama(.timeout) {
-            notify("LingoPulse", "Refinement timed out. Model may be cold.")
-            return
-        } catch {
-            Log.error("quick refine error: \(error)")
-            notify("LingoPulse", "Refine failed: \(error)")
-            return
-        }
-
-        await showPreview(
-            result,
-            { /* accept = no-op; preview already auto-copied refined text */ },
-            { [weak fixer] in
-                Task { _ = try? await fixer?.ring.popLatest() }
-                Log.info("quick refine preview rejected — rolled back ring entry")
+        var currentTone = Self.defaultTone
+        while true {
+            let result: FixerResult
+            do {
+                result = try await fixer.refine(
+                    selection: trimmed,
+                    app: Constants.AppNames.quickRefine,
+                    toneOverride: currentTone
+                )
+            } catch FixerError.ollama(.busy) {
+                Log.info("ollama busy — try again in a moment")
+                return
+            } catch FixerError.ollama(.timeout) {
+                notify("LingoPulse", "Refinement timed out. Model may be cold.")
+                return
+            } catch {
+                Log.error("quick refine error: \(error)")
+                notify("LingoPulse", "Refine failed: \(error)")
+                return
             }
-        )
+
+            var outcome: PreviewOutcome = .rejected
+            await showPreview(result) { o in outcome = o }
+
+            switch outcome {
+            case .accepted:
+                return
+            case .rejected:
+                _ = try? await fixer.ring.popLatest()
+                Log.info("quick refine preview rejected — rolled back ring entry")
+                return
+            case .changeTone:
+                _ = try? await fixer.ring.popLatest()
+                guard let newTone = await tonePick() else { return }
+                currentTone = newTone
+            }
+        }
     }
 
     static func defaultCapture() async -> String? {
@@ -79,7 +91,7 @@ final class QuickRefineCommand {
                 var resolved = false
                 await TonePickerPanel().show(
                     tones: ToneCommand.availableTones,
-                    preselected: "Grammar-only",
+                    preselected: defaultTone,
                     onCancel: {
                         if !resolved { resolved = true; cont.resume(returning: nil) }
                     }
@@ -92,15 +104,15 @@ final class QuickRefineCommand {
 
     static func defaultShowPreview(
         _ result: FixerResult,
-        _ onAccept: @escaping () -> Void,
-        _ onReject: @escaping () -> Void
+        _ onOutcome: @escaping (PreviewOutcome) -> Void
     ) async {
         await PreviewPanel().show(
             original: result.original,
             refined: result.refined,
             axWriteAvailable: false,
-            onAccept: onAccept,
-            onReject: onReject
+            onAccept: { onOutcome(.accepted) },
+            onReject: { onOutcome(.rejected) },
+            onChangeTone: { onOutcome(.changeTone) }
         )
     }
 }

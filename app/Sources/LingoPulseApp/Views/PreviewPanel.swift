@@ -14,6 +14,7 @@ final class PreviewPanel {
     private var globalMouseMonitor: Any?
     private var onAccept: (() -> Void)?
     private var onReject: (() -> Void)?
+    private var onChangeTone: (() -> Void)?
     private var refinedText: String = ""
     private var previousApp: NSRunningApplication?
     private var hasFiredCallback = false
@@ -34,11 +35,13 @@ final class PreviewPanel {
         refined: String,
         axWriteAvailable: Bool,
         onAccept: @escaping () -> Void,
-        onReject: @escaping () -> Void
+        onReject: @escaping () -> Void,
+        onChangeTone: (() -> Void)? = nil
     ) async {
         if panel != nil { return }
         self.onAccept = onAccept
         self.onReject = onReject
+        self.onChangeTone = onChangeTone
         self.refinedText = refined
         self.previousApp = NSWorkspace.shared.frontmostApplication
         self.hasFiredCallback = false
@@ -53,9 +56,11 @@ final class PreviewPanel {
             original: original,
             refined: refined,
             axWriteAvailable: axWriteAvailable,
+            changeToneAvailable: onChangeTone != nil,
             onAccept: { [weak self] in self?.fireAccept() },
             onCopy: { [weak self] in self?.fireCopy() },
-            onReject: { [weak self] in self?.fireReject() }
+            onReject: { [weak self] in self?.fireReject() },
+            onChangeTone: { [weak self] in self?.fireChangeTone() }
         )
 
         let hc = NSHostingController(rootView: view)
@@ -103,6 +108,7 @@ final class PreviewPanel {
         ClipboardService.copy(refinedText)
         fire { /* neither accept nor reject */ }
     }
+    private func fireChangeTone() { fire { self.onChangeTone?() } }
 
     private func fire(_ callback: @escaping () -> Void) {
         if hasFiredCallback { return }
@@ -119,6 +125,7 @@ final class PreviewPanel {
         }
         onAccept = nil
         onReject = nil
+        onChangeTone = nil
         // Release the self-retain set in show(). After the dispatched Task
         // captured `callback`, this instance is no longer needed.
         selfReference = nil
@@ -151,6 +158,14 @@ final class PreviewPanel {
             // notification the view listens for.
             NotificationCenter.default.post(name: .lpPreviewToggleDiff, object: nil)
             return nil
+        case "t":
+            // Only intercept T when a change-tone callback is wired (Quick Refine).
+            // Other callers (Right-⌘ refine, PreviewCommand) pass nil and T falls through.
+            if onChangeTone != nil {
+                fireChangeTone()
+                return nil
+            }
+            return event
         default:
             return event
         }
@@ -233,9 +248,11 @@ private struct PreviewView: View {
     let original: String
     let refined: String
     let axWriteAvailable: Bool
+    let changeToneAvailable: Bool
     let onAccept: () -> Void
     let onCopy: () -> Void
     let onReject: () -> Void
+    let onChangeTone: () -> Void
 
     @State private var showDiff: Bool = false
 
@@ -256,10 +273,12 @@ private struct PreviewView: View {
 
                 FooterView(axWriteAvailable: axWriteAvailable,
                            showDiff: showDiff,
+                           changeToneAvailable: changeToneAvailable,
                            onAccept: onAccept,
                            onCopy: onCopy,
                            onReject: onReject,
-                           onToggleDiff: { showDiff.toggle() })
+                           onToggleDiff: { showDiff.toggle() },
+                           onChangeTone: onChangeTone)
             }
             .padding(14)
         }
@@ -355,22 +374,30 @@ private struct DiffSection: View {
 private struct FooterView: View {
     let axWriteAvailable: Bool
     let showDiff: Bool
+    let changeToneAvailable: Bool
     let onAccept: () -> Void
     let onCopy: () -> Void
     let onReject: () -> Void
     let onToggleDiff: () -> Void
+    let onChangeTone: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
             ShortcutHint(key: "Enter", label: axWriteAvailable ? "Apply" : "Apply (paste)")
             ShortcutHint(key: "C", label: "Copy")
             ShortcutHint(key: "D", label: showDiff ? "Hide diff" : "Show diff")
+            if changeToneAvailable {
+                ShortcutHint(key: "T", label: "Change tone")
+            }
             Spacer()
             ShortcutHint(key: "Esc", label: "Reject")
 
             Button("Reject", action: onReject).buttonStyle(.bordered)
             Button("Copy", action: onCopy).buttonStyle(.bordered)
             Button("Diff", action: onToggleDiff).buttonStyle(.bordered)
+            if changeToneAvailable {
+                Button("Tone", action: onChangeTone).buttonStyle(.bordered)
+            }
             Button("Apply", action: onAccept).buttonStyle(.borderedProminent)
         }
     }
