@@ -145,7 +145,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case .refine:      coordinator.refineFocusedSelection()
             case .preview:     coordinator.previewSelection()
             case .tone:        coordinator.refineWithTone()
-            case .quickRefine: break  // wired in Task 7
+            case .quickRefine: coordinator.runQuickRefine()
             case .undo:        coordinator.undoLast()
             }
         }
