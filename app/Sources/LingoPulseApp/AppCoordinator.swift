@@ -100,4 +100,8 @@ final class AppCoordinator {
         let cmd = ToneCommand(fixer: fixer, accessibility: accessibility)
         Task { @MainActor in await cmd.execute() }
     }
+    func runQuickRefine() {
+        let cmd = QuickRefineCommand(fixer: fixer)
+        Task { @MainActor in await cmd.execute() }
+    }
 }
