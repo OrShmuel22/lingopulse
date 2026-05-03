@@ -4,8 +4,8 @@ import AppKit
 
 @Suite struct QuickActionTests {
 
-    @Test func allCasesCountIsSix() {
-        #expect(QuickAction.allCases.count == 6)
+    @Test func allCasesCountIsFive() {
+        #expect(QuickAction.allCases.count == 5)
     }
 
     @Test func allCasesHaveNonEmptyLabelAndSystemImage() {
@@ -25,14 +25,13 @@ import AppKit
         #expect(QuickAction(rawValue: 1) == .preview)
         #expect(QuickAction(rawValue: 2) == .refine)
         #expect(QuickAction(rawValue: 3) == .tone)
-        #expect(QuickAction(rawValue: 4) == .undo)
-        #expect(QuickAction(rawValue: 5) == .dictionary)
-        #expect(QuickAction(rawValue: 6) == .captureStyle)
+        #expect(QuickAction(rawValue: 4) == .quickRefine)
+        #expect(QuickAction(rawValue: 5) == .undo)
     }
 
     @Test func rawValueInitForOutOfRange() {
         #expect(QuickAction(rawValue: 0) == nil)
-        #expect(QuickAction(rawValue: 7) == nil)
+        #expect(QuickAction(rawValue: 6) == nil)
     }
 }
 
@@ -46,7 +45,7 @@ import AppKit
 
     @Test func moveDownWraps() {
         let vm = QuickActionPanelViewModel()
-        for _ in 0..<6 { vm.moveDown() }
+        for _ in 0..<5 { vm.moveDown() }
         #expect(vm.highlightedIndex == 0)
     }
 

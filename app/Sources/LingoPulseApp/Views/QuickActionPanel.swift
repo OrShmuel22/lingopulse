@@ -2,28 +2,26 @@ import AppKit
 import SwiftUI
 
 enum QuickAction: Int, CaseIterable, Identifiable {
-    case preview = 1, refine, tone, undo, dictionary, captureStyle
+    case preview = 1, refine, tone, quickRefine, undo
     var id: Int { rawValue }
 
     var label: String {
         switch self {
-        case .refine:       return "Refine"
-        case .preview:      return "Preview"
-        case .tone:         return "Tone"
-        case .undo:         return "Undo"
-        case .dictionary:   return "Find a Word"
-        case .captureStyle: return "Capture Style"
+        case .refine:      return "Refine"
+        case .preview:     return "Preview"
+        case .tone:        return "Tone"
+        case .quickRefine: return "Quick Refine"
+        case .undo:        return "Undo"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .refine:       return "wand.and.stars"
-        case .preview:      return "eye"
-        case .tone:         return "paintpalette.fill"
-        case .undo:         return "arrow.uturn.backward"
-        case .dictionary:   return "character.book.closed"
-        case .captureStyle: return "square.and.arrow.down"
+        case .refine:      return "wand.and.stars"
+        case .preview:     return "eye"
+        case .tone:        return "paintpalette.fill"
+        case .quickRefine: return "square.and.pencil"
+        case .undo:        return "arrow.uturn.backward"
         }
     }
 
@@ -59,7 +57,7 @@ final class QuickActionPanel {
         })
 
         let hc = NSHostingController(rootView: view)
-        hc.view.frame = NSRect(x: 0, y: 0, width: 240, height: 280)
+        hc.view.frame = NSRect(x: 0, y: 0, width: 240, height: 240)
 
         let p = KeyablePanel(
             contentRect: hc.view.frame,
@@ -122,7 +120,7 @@ final class QuickActionPanel {
         prev?.activate()
         Task { @MainActor in
             // Wait for source app to actually regain frontmost status before
-            // running the action. Without this, refine/dictionary/etc. read
+            // running the action. Without this, refine/preview/etc. read
             // selection from this app instead of the source field.
             try? await Task.sleep(for: .milliseconds(120))
             cb?(action)
@@ -138,7 +136,7 @@ final class QuickActionPanel {
     private func handleKey(event: NSEvent, vm: QuickActionPanelViewModel) -> NSEvent? {
         let chars = event.charactersIgnoringModifiers ?? ""
         if let digit = chars.first.flatMap({ Int(String($0)) }),
-           digit >= 1 && digit <= 6,
+           digit >= 1 && digit <= 5,
            let action = QuickAction(rawValue: digit) {
             fire(action)
             return nil
@@ -221,7 +219,7 @@ private struct QuickActionView: View {
             }
             .padding(6)
         }
-        .frame(width: 240, height: 280)
+        .frame(width: 240, height: 240)
     }
 }
 

@@ -142,12 +142,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.show(anchor: anchor) { action in
             guard let action = action else { return }
             switch action {
-            case .refine:       coordinator.refineFocusedSelection()
-            case .preview:      coordinator.previewSelection()
-            case .tone:         coordinator.refineWithTone()
-            case .undo:         coordinator.undoLast()
-            case .dictionary:   coordinator.lookupWord()
-            case .captureStyle: coordinator.captureStyleExample()
+            case .refine:      coordinator.refineFocusedSelection()
+            case .preview:     coordinator.previewSelection()
+            case .tone:        coordinator.refineWithTone()
+            case .quickRefine: break  // wired in Task 7
+            case .undo:        coordinator.undoLast()
             }
         }
     }
