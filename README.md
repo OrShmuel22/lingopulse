@@ -9,6 +9,12 @@ Local, private English refinement for macOS. A menu-bar app that polishes the te
 
 Powered by [Ollama](https://ollama.com) on Apple Silicon.
 
+<p align="center">
+  <img src="docs/assets/quick-refine-preview.png" width="640" alt="Preview panel showing original text 'Help me fix my englsih' next to refined 'Help me fix my English.' with diff highlights and keyboard shortcuts">
+  <br>
+  <em>Quick Refine — type a sentence, see the diff, paste anywhere with ⌘V.</em>
+</p>
+
 ---
 
 ## Highlights
@@ -71,6 +77,10 @@ That's it. No Python, no daemons, no LaunchAgents.
 
 Single key (Right ⌘ / Right ⌥ / Fn) and double-tap modifier (⌘ / ⌥ / ⇧) are configurable in **Settings → General → Triggers**.
 
+<p align="center">
+  <img src="docs/assets/quick-action-menu.png" width="220" alt="Quick Action menu showing five entries: Refine (1), Preview (2), Tone (3), Quick Refine (4) highlighted, Undo (5)">
+</p>
+
 ---
 
 ## Terminal integration (zsh / bash)
@@ -98,6 +108,10 @@ For apps where the shell widget doesn't fit — Claude Code's terminal pane, web
 2. The capture panel opens, focused. Type or paste your text. Enter submits; Shift+Enter inserts a newline; Esc cancels.
 3. The refined text shows in the diff preview. The clipboard is updated automatically.
 4. Press **Esc** to dismiss, then ⌘V in your app.
+
+<p align="center">
+  <img src="docs/assets/quick-refine-capture.png" width="520" alt="Quick Refine capture panel — a multi-line text editor with footer hints for Refine, Newline, and Cancel">
+</p>
 
 From the preview, press **T** to re-refine with a different tone (Casual, Neutral, Professional, Technical, Grammar-only). Default is Grammar-only.
 
